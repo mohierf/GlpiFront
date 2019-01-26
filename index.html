@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Mon application</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- Site icon
+        ================================================== -->
+        <link href="images/favicon.ico" rel="shortcut icon">
+
+        <!-- Stylesheets
+        ================================================== -->
+        <link rel="stylesheet" href="css/bootstrap.min.css" >
+        <link rel="stylesheet" href="css/bootstrap-theme.min.css" >
+        <link rel="stylesheet" href="css/fontawesome.min.css" >
+        <link rel="stylesheet" href="css/alertify.min.css" >
+        <link rel="stylesheet" href="css/glpi_front.css" >
+    </head>
+
+    <body>
+
+        <div class="container">
+
+            <!-- Static navbar -->
+            <nav class="navbar navbar-default">
+               <div class="container-fluid">
+                 <div class="navbar-header">
+                   <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                     <span class="sr-only">Toggle navigation</span>
+                     <span class="icon-bar"></span>
+                     <span class="icon-bar"></span>
+                     <span class="icon-bar"></span>
+                   </button>
+                   <a class="navbar-brand" data-toggle="modal" data-target="#modalAbout" href="#">Glpi frontend</a>
+                 </div>
+                 <div id="navbar" class="navbar-collapse collapse">
+                   <ul class="nav navbar-nav">
+                     <li class="active"><a href="#">Home</a></li>
+                     <li><a data-toggle="modal" data-target="#modalAbout" href="#">About</a></li>
+                     <li><a href="#">Contact</a></li>
+                     <li class="dropdown">
+                       <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
+                       <ul class="dropdown-menu">
+                         <li><a href="#">Action</a></li>
+                         <li><a href="#">Another action</a></li>
+                         <li><a href="#">Something else here</a></li>
+                         <li role="separator" class="divider"></li>
+                         <li class="dropdown-header">Nav header</li>
+                         <li><a href="#">Separated link</a></li>
+                         <li><a href="#">One more separated link</a></li>
+                       </ul>
+                     </li>
+                   </ul>
+                   <ul class="nav navbar-nav navbar-right">
+                     <li><a href="#"><strong><i id="loading" class="fas fa-1x fa-spinner"></i></strong></a></li>
+                     <li><a href="#" id="logout">Logout<span class="sr-only">(logout)</span></a></li>
+                   </ul>
+                 </div><!--/.nav-collapse -->
+               </div><!--/.container-fluid -->
+             </nav>
+
+            <!-- About application popup -->
+            <div id="modalAbout" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modalAboutLabel">
+                <a href="#" data-rel="back" data-role="button" data-theme="b" data-icon="delete" data-iconpos="notext" class="ui-btn-right">Close</a>
+
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                            <h4 class="modal-title" id="modalAboutLabel">GLPI frontend</h4>
+                        </div>
+
+                        <div class="modal-body">
+                            <form>
+                                <div class="row">
+                                    <div class="col-sm-4 text-center">
+                                        <img src='images/application-sm.png' alt="Application logo" class="img-responsive text-center">
+                                    </div>
+                                    <div class="col-sm-8">
+                                        <div class="form-group">
+                                            <label for="app_version">Version:</label>
+                                            <input readonly type="text" class="form-control" id="app_version">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="app_copyright">Copyright:</label>
+                                            <input readonly type="text" class="form-control" id="app_copyright">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="app_license">License:</label>
+                                            <input readonly type="text" class="form-control" id="app_license">
+                                        </div>
+                                        <!--
+                                        <div class="form-group">
+                                            <label for="app_release">Release notes:</label>
+                                            <textarea readonly cols="40" rows="8" class="form-control" id="app_release"></textarea>
+                                        </div>
+                                        -->
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Login modal-->
+            <div id="modalLogin" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modalLoginLabel">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                            <h4 class="modal-title" id="modalLoginLabel">Welcome, use your credentials to sign in</h4>
+                        </div>
+
+                        <div class="modal-body">
+                            <form id="check-user">
+                                <div class="row">
+                                    <div class="col-md-4 text-center">
+                                        <img src='images/application.png' alt="Application logo" class="img-responsive text-center">
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="form-group">
+                                            <label for="login_username">Login:</label>
+                                            <input type="text" class="form-control" id="login_username" autofocus>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="login_password">Mot de passe:</label>
+                                            <input type="password" class="form-control" id="login_password">
+                                        </div>
+
+                                        <button id="login-submit" type="submit" class="btn btn-default">Connection</button>
+                                    </div>
+                                </div>
+                                <div id="server-alert" class="alert-danger" style="display: none; padding: 5px">
+                                    <h3><i class="fas fa-1x fa-bomb">&nbsp;</i>Serveur indisponible.</h3>
+                                    <hr>
+                                    <p>Le serveur est indisponible et la connexion ne pourra pas aboutir.</p>
+                                    <p>Merci de réessayer ultérieurement.</p>
+                                </div>
+
+                                <div id="login-alert" class="alert-danger" style="display: none; font-weight: normal;">
+                                    <h3><i class="fas fa-1x fa-window-close">&nbsp;</i>&nbsp;Erreur de connexion.</h3>
+                                    <hr>
+                                    <p>Vos données de connexion sont erronées.</p>
+                                    <p>Vous pouvez essayer à nouveau ...</p>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="jumbotron">
+                <h2><i class="fas fa-1x fa-tag"></i>&nbsp;Tickets</h2>
+                <ul class="list-group">
+                    <li class="list-group-item">
+                        <span class="badge">14</span> Incidents
+                    </li>
+                    <li class="list-group-item">
+                        <span class="badge">3</span> Demandes
+                    </li>
+                </ul>
+            </div>
+
+            <div class="jumbotron">
+                <h2><i id="server-available" class="fas fa-1x fa-globe"></i>&nbsp;GLPI data</h2>
+                <form id="glpi-data" class="form-horizontal">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_server_name">Server:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_server_name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_server_text"></label>
+                                <div class="col-sm-9">
+                                    <textarea readonly cols="40" rows="3" class="form-control" id="gd_server_text"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_server_url">Home page:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_server_url">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_server_db">Database version:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_server_db">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_user_login">Login:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_user_login">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_user_name">Nom:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_user_name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_user_category">Catégorie:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_user_category">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_entity_name">Entité:</label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_entity_name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_entity_completename"></label>
+                                <div class="col-sm-9">
+                                    <input readonly type="text" class="form-control" id="gd_entity_completename">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-3" for="gd_entity_comment"></label>
+                                <div class="col-sm-9">
+                                    <textarea readonly cols="40" rows="3" class="form-control" id="gd_entity_comment"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div> <!-- /container -->
+
+        <!-- Placed at the end of the document so the pages load faster -->
+        <!-- Scripts
+        ================================================== -->
+        <script src="js/jquery-1.12.0.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/moment.min.js"></script>
+        <script src="js/jquery.cookie.js"></script>
+        <script src="js/jquery.jclock.js"></script>
+        <script src="js/alertify.min.js"></script>
+        <script src="js/glpi_front.js"></script>
+    </body>
+</html>
