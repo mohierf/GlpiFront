@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Mon application</title>
+        <title>GLPI front end</title>
 
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -12,16 +12,16 @@
 
         <!-- Stylesheets
         ================================================== -->
-        <link rel="stylesheet" href="css/bootstrap.min.css" >
-        <link rel="stylesheet" href="css/bootstrap-theme.min.css" >
-        <link rel="stylesheet" href="css/fontawesome.min.css" >
-        <link rel="stylesheet" href="css/alertify.min.css" >
+        <link rel="stylesheet" href="lib/css/bootstrap.min.css" >
+        <link rel="stylesheet" href="lib/css/bootstrap-theme.min.css" >
+        <link rel="stylesheet" href="lib/css/fontawesome.min.css" >
+        <link rel="stylesheet" href="lib/css/alertify.min.css" >
         <link rel="stylesheet" href="css/glpi_front.css" >
     </head>
 
     <body>
 
-        <div class="container">
+        <div class="container-fluid">
 
             <!-- Static navbar -->
             <nav class="navbar navbar-default">
@@ -164,31 +164,7 @@
                 <h2><i class="fas fa-1x fa-tag"></i>&nbsp;Tickets</h2>
 
                 <div class="panel-group" id="tickets-tabs" role="tablist" aria-multiselectable="true">
-                    <!--<div id="tickets_new"></div>-->
-                    <!--<div id="tickets_progressing"></div>-->
-                    <!--<div id="tickets_closed"></div>-->
                 </div>
-
-                <!--<ul id="tickets_list" class="list-group">-->
-                    <!--<li id="tickets_new2" class="list-group-item" data-toggle="collapse" data-target="#tickets_new_table">-->
-                        <!--<span class="badge">0</span> <span class="badge">0</span> Nouveaux tickets-->
-                        <!--<div id="tickets_new_table2" class="collapse"></div>-->
-                    <!--</li>-->
-                    <!--<li id="tickets_progressing" class="list-group-item" data-toggle="collapse" data-target="#tickets_progressing_table">-->
-                        <!--<span class="badge">0</span> <span class="badge">0</span> Tickets en cours-->
-                        <!--<div id="tickets_progressing_table" class="collapse"></div>-->
-                    <!--</li>-->
-                    <!--<li id="tickets_closed" class="list-group-item" data-toggle="collapse" data-target="#tickets_closed_table">-->
-                        <!--<span class="badge">0</span> <span class="badge">0</span> Tickets résolus / clos-->
-                        <!--<div id="tickets_closed_table" class="collapse"></div>-->
-                    <!--</li>-->
-                <!--</ul>-->
-                <!--<div class="table-responsive">-->
-                    <!--<table class="table table-condensed">-->
-                        <!--<thead id="tickets_table_header"></thead>-->
-                        <!--<tbody id="tickets_table_body"></tbody>-->
-                    <!--</table>-->
-                <!--</div>-->
             </div>
 
             <div id="panel-server" class="jumbotron">
@@ -274,82 +250,73 @@
         <!-- Placed at the end of the document so the pages load faster -->
         <!-- Scripts
         ================================================== -->
-        <script src="lib/jquery-1.12.0.min.js"></script>
-        <script src="lib/bootstrap.min.js"></script>
-        <script src="lib/moment.min.js"></script>
-        <script src="lib/jquery.cookie.js"></script>
-        <script src="lib/jquery.jclock.js"></script>
-        <script src="lib/alertify.min.js"></script>
+        <script src="lib/js/jquery-1.12.0.min.js"></script>
+        <script src="lib/js/bootstrap.min.js"></script>
+        <script src="lib/js/moment.min.js"></script>
+        <script src="lib/js/jquery.cookie.js"></script>
+        <script src="lib/js/jquery.jclock.js"></script>
+        <script src="lib/js/alertify.min.js"></script>
         <script src="js/glpi_connection.js"></script>
         <script src="js/glpi_front.js"></script>
 
-        <!-- Ticket list item template -->
-        <script id="template-list-item" type="text/template">
-            <li>
-                <a href="{{url}}">{{name}}</a>, {{status}}, {{date_creation}}, {{date_mod}}
-            </li>
-        </script>
-
-        <!-- Tickets templates -->
+        <!-- Tickets table templates -->
         <script id="tpl-tickets-table" type="text/template">
-            <div class="panel panel-default" id="{{table}}">
-                <div class="panel-heading" role="tab" data-toggle="collapse" data-target="#{{table}}_panel" id="{{table}}_heading">
+            <div class="panel panel-default" id="__table__">
+                <div class="panel-heading" role="tab" data-toggle="collapse" data-target="#__table___panel" id="__table___heading">
                     <div class="row">
                         <div class="col-sm-9">
-                            {{title}}
+                            <strong>__title__</strong>
                         </div>
-                        <div class="col-sm-3 pull-right">
-                            <span class="badge">{{count}}</span> <span class="badge">{{totalcount}}</span>
+                        <div class="col-sm-3">
+                            <div class="pull-right"><span class="badge">__totalcount__</span></div>
+                            <div class="pull-right">&nbsp;<strong>/</strong>&nbsp;</div>
+                            <div class="pull-right"><span class="badge">__count__</span></div>
                         </div>
                     </div>
                 </div>
-                <div class="panel-body collapse panel-collapse in" id="{{table}}_panel" labelledby="#{{table}}_heading">
-                    <div class="row">
-                        <div class="col-sm-3">
-                            {{count}} tickets, total: {{totalcount}}
-                        </div>
-                        <div class="col-sm-9">
-                            <span class="badge">{{count}}</span> <span class="badge">{{totalcount}}</span> Nouveaux tickets
-                        </div>
-                    </div>
+                <div class="panel-body collapse panel-collapse table-responsive" id="__table___panel" labelledby="#__table___heading">
+                    <nav aria-label="Pagination">
+                        <ul class="pager">
+                            <li class="previous"><a href="#"><i class="fas fa-1x fa-chevron-left"></i>&nbsp;Précédent</a></li>
+                            <li class="next"><a href="#">Suivant&nbsp;<i class="fas fa-1x fa-chevron-right"></i></a></li>
+                        </ul>
+                    </nav>
                     <table class="table table-condensed table-responsive table-tickets">
-                        <thead>
-                        <tr>
-                            <th>Création</th>
-                            <th>Modification</th>
-                            <th>Solution</th>
-                            <th>Cloture</th>
-                            <th>Etat</th>
-                            <th>Type</th>
-                            <th>Catégorie</th>
-                            <th>Priorité</th>
-                            <th>Urgence</th>
-                            <th>Impact</th>
-                            <th>Demandeur</th>
-                            <th>Titre</th>
-                            <th>Contenu</th>
-                        </tr>
-                        </thead>
+                        <thead><tr>
+                            <th>__15__</th>
+                            <th>__19__</th>
+                            <th>__16__</th>
+                            <th>__17__</th>
+                            <th>__12__</th>
+                            <th>__14__</th>
+                            <th>__7__</th>
+                            <th>__3__</th>
+                            <th>__10__</th>
+                            <th>__11__</th>
+                            <th>__4__</th>
+                            <th>__1__</th>
+                            <th>__25__</th>
+                        </tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
             </div>
         </script>
         <script id="tpl-tickets-row" type="text/template">
-            <tr id="ticket_{{id}}" class="{{status}}">
-                <td>{{date_creation}}</td>
-                <td>{{date_mod}}</td>
-                <td>{{close_date}}</td>
-                <td>{{solve_date}}</td>
-                <td>{{status}}</td>
-                <td>{{type}}</td>
-                <td>{{category}}</td>
-                <td>{{priority}}</td>
-                <td>{{urgency}}</td>
-                <td>{{impact}}</td>
-                <td>{{author}}</td>
-                <td>{{name}}</td>
-                <td class="text-overflow">{{content}}</td>
+            <tr id="ticket___2__" class="__12__">
+                <td>__15__</td>
+                <td>__19__</td>
+                <td>__16__</td>
+                <td>__17__</td>
+                <td>__12__</td>
+                <td>__14__</td>
+                <td>__7__</td>
+                <td>__3__</td>
+                <td>__10__</td>
+                <td>__11__</td>
+                <td>__4__</td>
+                <td>__1__</td>
+                <td class="text-overflow">__25__</td>
             </tr>
         </script>
     </body>

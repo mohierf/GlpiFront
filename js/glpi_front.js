@@ -50,8 +50,22 @@ let userSettings = {
     // Server's name
     server: '',
 
-    // Default page count
-    page_count: 5
+    // Tickets table display
+    tickets_table: {
+        // Default page count
+        page_count: 5,
+
+        range_min: 0,
+        range_max: 0,
+
+        count: 0,
+        total_count: 0,
+
+        // Default columns
+        forcedisplay: [
+            1, 3, 4, 7, 10, 11, 12, 14, 15, 16, 17, 19, 25
+        ]
+    }
 };
 if ($.cookie('session')) {
     g_session_token = $.cookie('session');
@@ -166,7 +180,7 @@ function wsLogin(login_username, login_password) {
         $("#login-alert").hide();
 
         // Store the session token in a cookie
-        g_session_token = response.session_token;
+        g_session_token = response["session_token"];
         $.cookie('session', g_session_token);
         if (g_debugJs) console.debug('cookie, new session: ', g_session_token);
 
@@ -205,7 +219,7 @@ function wsLogin(login_username, login_password) {
         }
     })
     .always(function() {
-    });
+    })
 }
 
 /*
@@ -252,7 +266,7 @@ function wsLogout() {
     })
     .always(function() {
         $.removeCookie('session');
-    });
+    })
 }
 
 /*
@@ -306,7 +320,7 @@ function wsCall(sEndpoint, parameters) {
             $.removeCookie('session');
             location.reload();
         }
-    });
+    })
 }
 
 /*
@@ -374,7 +388,7 @@ function setCurrentUser(language, id, login, username) {
         $("#gd_user_name").val(userSettings.user_name);
     }
     // todo - not existing!
-    $("#gd_user_category").val(userSettings.user_category);
+    // $("#gd_user_category").val(userSettings.user_category);
 }
 
 /*
@@ -403,7 +417,7 @@ function getServerAvailability(refresh) {
     .done( function( response ) {
         if (g_debugJs) console.debug('Active entities: ', response);
 
-        userSettings.activeEntities = response.active_entity;
+        userSettings.activeEntities = response["active_entity"];
 
         // Nothing to do with it ...
         g_server_available = true;
@@ -438,7 +452,7 @@ function getServerAvailability(refresh) {
         window.setTimeout(function() {
             $("#server-available").removeClass('fa-spin');
         }, 500);
-    });
+    })
 }
 
 /*
@@ -452,10 +466,10 @@ function getFullSession() {
     return wsCall('getFullSession')
     .done(function(response) {
         if (g_debugJs) console.debug('getFullSession, response: ', response);
-        let session = response.session;
+        let session = response["session"];
 
-        setCurrentUser(session.glpilanguage, session.glpiID, session.glpiname, session.glpirealname + ' ' + session.glpifirstname);
-    });
+        setCurrentUser(session["glpilanguage"], session["glpiID"], session["glpiname"], session["glpirealname"] + ' ' + session["glpifirstname"]);
+    })
 }
 
 /*
@@ -469,7 +483,7 @@ function getGlpiConfig() {
     return wsCall('getGlpiConfig')
     .done(function(response) {
         if (g_debugJs) console.debug('getGlpiConfig, response: ', response);
-        let cfg_glpi = response.cfg_glpi;
+        let cfg_glpi = response["cfg_glpi"];
 
         /*
          * Some interesting data:
@@ -480,8 +494,8 @@ function getGlpiConfig() {
          *  url_base, url_base_api
          *  version, text_login
          */
-        setCurrentServer(null, cfg_glpi.text_login, cfg_glpi.url_base, cfg_glpi.dbversion);
-    });
+        setCurrentServer(null, cfg_glpi["text_login"], cfg_glpi["url_base"], cfg_glpi["dbversion"]);
+    })
 }
 
 /*
@@ -495,14 +509,14 @@ function getMyProfiles() {
     return wsCall('getMyProfiles')
     .done(function(response) {
         if (g_debugJs) console.debug('getMyProfiles, response: ', response);
-        userSettings.user_profiles = response.myprofiles;
+        userSettings.user_profiles = response["myprofiles"];
 
         if (g_debugJs) {
             $.each(userSettings.user_profiles, function (index, profile) {
                 console.debug(profile.id, profile.name, profile.entities)
-            });
+            })
         }
-    });
+    })
 }
 function getActiveProfile() {
     if (g_debugJs) console.debug('getActiveProfile');
@@ -510,12 +524,12 @@ function getActiveProfile() {
     return wsCall('getActiveProfile')
     .done(function(response) {
         if (g_debugJs) console.debug('getActiveProfile, response: ', response);
-        let active_profile = response.active_profile;
+        let active_profile = response["active_profile"];
 
         userSettings.active_profile = active_profile;
 
         console.info("Active profile: ", active_profile.id, active_profile.name, active_profile.entities)
-    });
+    })
 }
 
 /*
@@ -529,14 +543,14 @@ function getMyEntities() {
     return wsCall('getMyEntities')
     .done(function(response) {
         if (g_debugJs) console.debug('getMyEntities, response: ', response);
-        userSettings.user_entities = response.myentities;
+        userSettings.user_entities = response["myentities"];
 
         if (g_debugJs) {
             $.each(userSettings.user_entities, function (index, entity) {
                 console.debug(entity.id, entity.name)
-            });
+            })
         }
-    });
+    })
 }
 function getActiveEntities() {
     if (g_debugJs) console.debug('getActiveEntities');
@@ -544,10 +558,10 @@ function getActiveEntities() {
     return wsCall('getActiveEntities')
     .done(function(response) {
         if (g_debugJs) console.debug('getActiveEntities, response: ', response);
-        let active_entity = response.active_entity;
+        let active_entity = response["active_entity"];
 
-        setCurrentEntity(active_entity.id, active_entity.active_entity_recursive, active_entity.active_entities);
-    });
+        setCurrentEntity(active_entity["id"], active_entity["active_entity_recursive"], active_entity["active_entities"]);
+    })
 }
 
 /*
@@ -715,7 +729,7 @@ function getEntity(id, current) {
             userSettings.entity_comment= entity.comment;
             $("#gd_entity_comment").val(userSettings.entity_comment);
         }
-    });
+    })
 }
 
 
@@ -730,11 +744,11 @@ function getUser(id) {
     return $.when(
         getItem('User', id, {expand_dropdowns: '1'})
     ).done(function(user) {
-        console.info("-/- got user information: ", user);
+        console.info("Got user information: ", user);
 
         // Store user information
         userSettings.user_data = user;
-    });
+    })
 }
 
 
@@ -777,7 +791,8 @@ function getTickets(table, title, parameters) {
 
     parameters.sort = '1';
     parameters.order = "ASC";
-    parameters.range = "0-" + (userSettings.page_count - 1);
+    parameters.range = "0-" + (userSettings.tickets_table.page_count - 1);
+    parameters.forcedisplay = userSettings.tickets_table.forcedisplay;
 
     // Get all possible tickets
     return $.when(
@@ -785,48 +800,79 @@ function getTickets(table, title, parameters) {
     ).done(function(tickets) {
         if (g_debugJs) console.debug('Found tickets: ', table, tickets);
 
-        // Update tickets count
-        $("#" + table + " span.badge:nth-child(2)").text(tickets.count);
-        $("#" + table + " span.badge:nth-child(1)").text(tickets.totalcount);
+        userSettings.tickets_table.count = parseInt(tickets["count"]);
+        userSettings.tickets_table.total_count = parseInt(tickets["totalcount"]);
 
         if ($("#" + table).children().length === 0) {
             // Build table from the template
             let html_template = $("#tpl-tickets-table").html();
+
             // $("#" + table).
             $("#tickets-tabs").
             append(html_template
-            .replace(/{{table}}/g, table)
-            .replace(/{{title}}/g, title)
-            .replace(/{{count}}/g, tickets.count)
-            .replace(/{{totalcount}}/g, tickets.totalcount)
+            .replace(/__table__/g, table)
+            .replace(/__title__/g, title)
+            .replace(/__count__/g, tickets["count"])
+            .replace(/__totalcount__/g, tickets["totalcount"])
             );
         }
+
+        // Update tickets count
+        // $("#" + table + " span.badge:nth-child(2)").text(userSettings.tickets_table.count);
+        // $("#" + table + " span.badge:nth-child(1)").text(userSettings.tickets_table.total_count);
+
+        // Update navigation
+        let range_parser = new RegExp(/(\d+)-(\d+)\/(\d+)/);
+        let range = tickets["content-range"].match(range_parser);
+        try {
+            userSettings.tickets_table.range_min = parseInt(range[1]);
+            userSettings.tickets_table.range_max = parseInt(range[2]);
+            userSettings.tickets_table.total_count = parseInt(range[3]);
+
+            if (userSettings.tickets_table.range_min <= 0) {
+                $("#" + table + " ul.pager li.previous").hide();
+            } else {
+                $("#" + table + " ul.pager li.previous").show();
+            }
+            if (userSettings.tickets_table.range_max >= userSettings.tickets_table.total_count - 1) {
+                $("#" + table + " ul.pager li.next").hide();
+            } else {
+                $("#" + table + " ul.pager li.next").show();
+            }
+        } catch(err) {
+            console.warn("Error parsing range-content information.", tickets["content-range"], range);
+        }
+
         // Update table content
         // Get the Ticket item template
         let html_template = $("#tpl-tickets-row").html();
+        let head_content = $("#" + table + ' thead>tr').html();
+        let row = null;
+        let head = null;
+
+        if (tickets.data.length > 0) {
+            // Build table header
+            head = head_content;
+            $.each(tickets.data[0], function (idx) {
+                head = head.replace(new RegExp('__' + idx + '__',"g"), userSettings.tickets_searchOptions[idx].name);
+            });
+            $("#" + table + ' thead>tr').html(head);
+        }
+        // Build table rows
         $.each(tickets.data, function (index, ticket) {
             if (g_debugJs) console.debug('Ticket:', ticket);
-            // ticket contains:
-            // 1: "Appel Station de Saint-Gervais"
-            // 2: 114
-            // 3: 3
-            // 7: "Développement logiciel > Softkiosk"
-            // 12: 5
-            // 13: null
-            // 15: "2019-01-04 14:15:00"
-            // 80: "Entité racine > eLiberty"
-            // 151: null
-            // Iterate tickets fields
-            let row = html_template;
-            $.each(ticket, function (idx, value) {
-                // if (g_debugJs) console.debug(idx, value, userSettings.tickets_searchOptions[idx].field);
-                let re = new RegExp('{{' + userSettings.tickets_searchOptions[idx].field + '}}',"g");
-                row = row.replace(re, value);
-            });
 
+            row = html_template;
+            $.each(ticket, function (idx, value) {
+                if (value && value.hasOwnProperty('length') && value.length > 25) {
+                    row = row.replace(new RegExp('__' + idx + '__',"g"), value.substring(0,25)+'&hellip;');
+                } else {
+                    row = row.replace(new RegExp('__' + idx + '__',"g"), value);
+                }
+            });
             $("#" + table + " tbody").append(row);
-        });
-    });
+        })
+    })
 }
 
 /*
@@ -849,12 +895,14 @@ function getConfiguration() {
             getActiveEntities()
         ).done(function() {
             console.info('Configuration done.');
-        });
-    });
+        })
+    })
 }
 
 $(function() {
     "use strict";
+
+    let page_body = $('body');
 
     // Application about panel
     $("#app_version").val(applicationManifest.version);
@@ -882,7 +930,7 @@ $(function() {
     });
 
     // Log in/out management
-    $('body')
+    page_body
     .on('click', '#login-submit', function() {
         if (g_debugJs) console.debug('Login request ...');
 
@@ -906,7 +954,7 @@ $(function() {
 
     // User events
     // -----
-    $('body')
+    page_body
     .on("user_signed_in", function (event) {
         // User events - sign in
         console.info('User signed in');
@@ -929,24 +977,24 @@ $(function() {
                 $.each(userSettings.entities, function (index, entity) {
                     if (g_debugJs) console.debug("Get information for entity: ", entity.id);
                     tasks.push(getEntity(entity.id, userSettings.entity_id === entity.id));
-                });
+                })
 
                 $.when.apply($, tasks).done(function() {
                     console.info('Got all entities.');
-                });
+                })
 
                 $("body").trigger(
                     $.Event("configuration_done", {message: "Fetched all the configuration data!"}));
             })
             .done(function() {
-            });
+            })
         })
         .always(function() {
             // With a small delay to have thevisual effect even if it is very fast...
             window.setTimeout(function() {
                 $("#loading").removeClass('fa-spin').removeClass('text-warning');
             }, 500);
-        });
+        })
     })
     .on("user_signed_out", function (event) {
         // User events - sign out
@@ -957,12 +1005,12 @@ $(function() {
         $.each($('#glpi-data input'), function (index, field) {
             if (g_debugJs) console.debug(index, field);
             field.value = '';
-        });
+        })
 
         $.each($('#glpi-data textarea'), function (index, field) {
             if (g_debugJs) console.debug(index, field);
             field.value = '';
-        });
+        })
 
         // With a small delay to have thevisual effect even if it is very fast...
         window.setTimeout(function() {
@@ -983,7 +1031,7 @@ $(function() {
 
     // Server events
     // -----
-    $('body')
+    page_body
     .on("server_denied", function (event) {
         // User events - unauthorized access
         console.error('Server access:', event.message);
@@ -1005,7 +1053,6 @@ $(function() {
         alertify.success(event.message);
 
         $("#panel-server>form").show();
-        $("#panel-tickets").show();
 
         // Update UI - no error message, connection button is enabled
         $("#server-available").show();
@@ -1028,35 +1075,159 @@ $(function() {
 
     // Global events
     // -----
-    $('body')
+    page_body
     .on("configuration_done", function (event) {
         // User events - unauthorized access
         console.info('Configuration done:', event.message);
         alertify.success(event.message);
 
         // Get all possible tickets
+        $("#loading").addClass('fa-spin').addClass('text-warning');
+        $("#panel-tickets").show();
         $.when(
             searchOptions('Ticket')
         ).done(function(searchOptions) {
-            if (g_debugJs) console.info('Tickets search options: ', searchOptions);
+            if (g_debugJs) console.debug('Tickets search options: ', searchOptions);
 
             // Store tickets search options
             userSettings.tickets_searchOptions = searchOptions;
+            /*
+             * Standard tickets search options:
+             * -----
+                1 Titre
+                2 ID
+                3 Priorité
+                4 Demandeur
+                5 Technicien
+                6 Assigné à un fournisseur
+                7 Catégorie
+                8 Groupe de techniciens
+                9 Source de la demande
+                10 Urgence
+                11 Impact
+                12 Statut
+                13 Éléments associés
+                14 Type
+                15 Date d'ouverture
+                16 Date de clôture
+                17 Date de résolution
+                18 Temps de résolution
+                19 Dernière modification
+                20 Tâches - Catégorie
+                21 Description
+                22 Rédacteur
+                23 Type de solution
+                24 Solution
+                25 Description
+                26 Tâches - Description
+                27 Nombre de suivis
+                28 Tâches - Nombre de tâches
+                29 Source de la demande
+                30 SLAs&nbsp;Temps de résolution
+                31 Type
+                32 SLAs&nbsp;Niveau d'escalade
+                33 Tâches - Statut
+                34 Courriel pour le suivi
+                35 Suivi par courriel
+                36 Date
+                37 SLAs&nbsp;Temps de prise en charge
+                40 Tous les tickets liés
+                41 Nombre de tous les tickets liés
+                42 Coût horaire
+                43 Coût fixe
+                44 Coût matériel
+                45 Durée totale
+                46 Nombre de ticket dupliqués
+                47 Tickets dupliqués
+                48 Coût total
+                49 Coût - Durée
+                50 Tickets parents
+                51 Validation minimale nécessaire
+                52 Validation
+                53 Commentaire de la demande
+                54 Commentaire de la validation
+                55 Statut de validation
+                56 Date de la demande
+                57 Date de la validation
+                58 Demandeur
+                59 Validateur
+                60 Date de création
+                61 Date de la réponse
+                62 Satisfaction
+                63 Commentaires
+                64 Dernière modification par
+                65 Groupe observateur
+                66 Observateur
+                67 Tickets enfants
+                68 Nombre de tickets enfants
+                69 Nombre de tickets parents
+                71 Groupe demandeur
+                80 Entité
+                82 Temps de résolution dépassé
+                83 Lieu
+                84 Numéro du bâtiment
+                85 Numéro de la pièce
+                86 Commentaires du lieu
+                91 Suivi privé
+                92 Tâches - Tâche privée
+                93 Rédacteur
+                94 Tâches - Rédacteur
+                95 Tâches - Technicien responsable
+                96 Tâches - Durée
+                97 Tâches - Date
+                101 Adresse
+                102 Code postal
+                103 Ville
+                104 État
+                105 Pays
+                112 Tâches - Groupe responsable
+                119 Nombre de documents
+                131 Types d'élément associé
+                141 Nombre de problèmes
+                142 Documents
+                150 Délai de prise en compte
+                151 Temps de résolution + Progression
+                152 Délai de clôture
+                153 Délai d'attente
+                154 Délai de résolution
+                155 Temps de prise en charge
+                158 Temps de prise en charge + progression
+                159 Temps de prise en charge dépassé
+                173 Tâches - Date de début
+                174 Tâches - Date de fin
+                175 Tâches - Gabarit de tâche
+                180 Temps interne de résolution
+                181 Temps interne de résolution + progression
+                182 Temps interne de résolution dépassé
+                185 Temps interne de prise en compte
+                186 Temps interne de prise en charge + progression
+                187 Temps interne de prise en charge dépassé
+                190 OLA&nbsp;Temps interne de prise en compte
+                191 OLA&nbsp;Temps interne de résolution
+                192 OLA&nbsp;Niveau d'escalade
+                998 Latitude
+                999 Longitude
+             */
+
+            $.each(searchOptions, function (idx, so) {
+                if (g_debugJs) console.debug(idx, so.name);
+            })
 
             $.when(
                 getNewTickets(),
-                // getProgressingTickets(),
-                // getSuspendedTickets(),
-                // getClosedTickets()
-            ).done(function(new_tickets, progressing_tickets, closed_tickets) {
-                new_tickets = new_tickets[0];
-                if (g_debugJs) console.debug('Found new tickets: ', new_tickets);
-                progressing_tickets = progressing_tickets[0];
-                if (g_debugJs) console.debug('Found progressing tickets: ', progressing_tickets);
-                closed_tickets = closed_tickets[0];
-                if (g_debugJs) console.debug('Found tickets: ', closed_tickets);
-            });
-        });
+                getProgressingTickets(),
+                getSuspendedTickets(),
+                getClosedTickets()
+            ).done(function() {
+                console.info('Got all tickets');
+            })
+        })
+        .always(function() {
+            // With a small delay to have thevisual effect even if it is very fast...
+            window.setTimeout(function() {
+                $("#loading").removeClass('fa-spin').removeClass('text-warning');
+            }, 500);
+        })
     });
 
     // Get server availability.
