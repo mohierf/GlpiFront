@@ -119,7 +119,7 @@
                             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                 <span aria-hidden="true">&times;</span>
                             </button>
-                            <h4 class="modal-title" id="modalLoginLabel">Welcome, use your credentials to sign in</h4>
+                            <h4 class="modal-title" id="modalLoginLabel">Bienvenue, entrez vos informations de connexion</h4>
                         </div>
 
                         <div class="modal-body">
@@ -138,7 +138,7 @@
                                             <input type="password" class="form-control" id="login_password">
                                         </div>
 
-                                        <button id="login-submit" type="submit" class="btn btn-default">Connection</button>
+                                        <button id="login-submit" type="submit" class="btn btn-default">Connexion</button>
                                     </div>
                                 </div>
                                 <div id="server-alert" class="alert-danger" style="display: none; padding: 5px">
@@ -160,21 +160,40 @@
                 </div>
             </div>
 
-            <div class="jumbotron">
+            <div id="panel-tickets" class="jumbotron" style="display: none">
                 <h2><i class="fas fa-1x fa-tag"></i>&nbsp;Tickets</h2>
-                <ul class="list-group">
-                    <li class="list-group-item">
-                        <span class="badge">14</span> Incidents
-                    </li>
-                    <li class="list-group-item">
-                        <span class="badge">3</span> Demandes
-                    </li>
-                </ul>
+
+                <div class="panel-group" id="tickets-tabs" role="tablist" aria-multiselectable="true">
+                    <!--<div id="tickets_new"></div>-->
+                    <!--<div id="tickets_progressing"></div>-->
+                    <!--<div id="tickets_closed"></div>-->
+                </div>
+
+                <!--<ul id="tickets_list" class="list-group">-->
+                    <!--<li id="tickets_new2" class="list-group-item" data-toggle="collapse" data-target="#tickets_new_table">-->
+                        <!--<span class="badge">0</span> <span class="badge">0</span> Nouveaux tickets-->
+                        <!--<div id="tickets_new_table2" class="collapse"></div>-->
+                    <!--</li>-->
+                    <!--<li id="tickets_progressing" class="list-group-item" data-toggle="collapse" data-target="#tickets_progressing_table">-->
+                        <!--<span class="badge">0</span> <span class="badge">0</span> Tickets en cours-->
+                        <!--<div id="tickets_progressing_table" class="collapse"></div>-->
+                    <!--</li>-->
+                    <!--<li id="tickets_closed" class="list-group-item" data-toggle="collapse" data-target="#tickets_closed_table">-->
+                        <!--<span class="badge">0</span> <span class="badge">0</span> Tickets résolus / clos-->
+                        <!--<div id="tickets_closed_table" class="collapse"></div>-->
+                    <!--</li>-->
+                <!--</ul>-->
+                <!--<div class="table-responsive">-->
+                    <!--<table class="table table-condensed">-->
+                        <!--<thead id="tickets_table_header"></thead>-->
+                        <!--<tbody id="tickets_table_body"></tbody>-->
+                    <!--</table>-->
+                <!--</div>-->
             </div>
 
-            <div class="jumbotron">
-                <h2><i id="server-available" class="fas fa-1x fa-globe"></i>&nbsp;GLPI data</h2>
-                <form id="glpi-data" class="form-horizontal">
+            <div id="panel-server" class="jumbotron">
+                <h2><i id="server-available" class="fas fa-1x fa-globe"></i>&nbsp;GLPI server data</h2>
+                <form id="glpi-data" class="form-horizontal" style="display: none">
                     <div class="row">
                         <div class="col-sm-6">
                             <div class="form-group">
@@ -255,12 +274,83 @@
         <!-- Placed at the end of the document so the pages load faster -->
         <!-- Scripts
         ================================================== -->
-        <script src="js/jquery-1.12.0.min.js"></script>
-        <script src="js/bootstrap.min.js"></script>
-        <script src="js/moment.min.js"></script>
-        <script src="js/jquery.cookie.js"></script>
-        <script src="js/jquery.jclock.js"></script>
-        <script src="js/alertify.min.js"></script>
+        <script src="lib/jquery-1.12.0.min.js"></script>
+        <script src="lib/bootstrap.min.js"></script>
+        <script src="lib/moment.min.js"></script>
+        <script src="lib/jquery.cookie.js"></script>
+        <script src="lib/jquery.jclock.js"></script>
+        <script src="lib/alertify.min.js"></script>
+        <script src="js/glpi_connection.js"></script>
         <script src="js/glpi_front.js"></script>
+
+        <!-- Ticket list item template -->
+        <script id="template-list-item" type="text/template">
+            <li>
+                <a href="{{url}}">{{name}}</a>, {{status}}, {{date_creation}}, {{date_mod}}
+            </li>
+        </script>
+
+        <!-- Tickets templates -->
+        <script id="tpl-tickets-table" type="text/template">
+            <div class="panel panel-default" id="{{table}}">
+                <div class="panel-heading" role="tab" data-toggle="collapse" data-target="#{{table}}_panel" id="{{table}}_heading">
+                    <div class="row">
+                        <div class="col-sm-9">
+                            {{title}}
+                        </div>
+                        <div class="col-sm-3 pull-right">
+                            <span class="badge">{{count}}</span> <span class="badge">{{totalcount}}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-body collapse panel-collapse in" id="{{table}}_panel" labelledby="#{{table}}_heading">
+                    <div class="row">
+                        <div class="col-sm-3">
+                            {{count}} tickets, total: {{totalcount}}
+                        </div>
+                        <div class="col-sm-9">
+                            <span class="badge">{{count}}</span> <span class="badge">{{totalcount}}</span> Nouveaux tickets
+                        </div>
+                    </div>
+                    <table class="table table-condensed table-responsive table-tickets">
+                        <thead>
+                        <tr>
+                            <th>Création</th>
+                            <th>Modification</th>
+                            <th>Solution</th>
+                            <th>Cloture</th>
+                            <th>Etat</th>
+                            <th>Type</th>
+                            <th>Catégorie</th>
+                            <th>Priorité</th>
+                            <th>Urgence</th>
+                            <th>Impact</th>
+                            <th>Demandeur</th>
+                            <th>Titre</th>
+                            <th>Contenu</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </script>
+        <script id="tpl-tickets-row" type="text/template">
+            <tr id="ticket_{{id}}" class="{{status}}">
+                <td>{{date_creation}}</td>
+                <td>{{date_mod}}</td>
+                <td>{{close_date}}</td>
+                <td>{{solve_date}}</td>
+                <td>{{status}}</td>
+                <td>{{type}}</td>
+                <td>{{category}}</td>
+                <td>{{priority}}</td>
+                <td>{{urgency}}</td>
+                <td>{{impact}}</td>
+                <td>{{author}}</td>
+                <td>{{name}}</td>
+                <td class="text-overflow">{{content}}</td>
+            </tr>
+        </script>
     </body>
 </html>

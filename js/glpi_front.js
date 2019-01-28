@@ -23,20 +23,6 @@ let applicationManifest = {
 
 
 /*
- * Default Web Services server
- */
-let scheme = "http";
-let g_server = "localhost";
-let g_port = "80";
-// Application token got from Glpi setup
-let g_app_token = 'KcsQNgF0V7is0sn5jouoAupIm94clhkvcEBDSN4m';
-// User token got from Glpi user settings
-// let g_user_token = null;
-// Current server session token
-let g_session_token = null;
-
-
-/*
  * Console logs debug variables
  *  g_debugJs: general information
  */
@@ -44,8 +30,9 @@ let g_debugJs = true;
 
 
 /*
- * Server connection status
+ * Server connection status and parameters
  */
+let g_session_token = null;
 let g_server_available = false;
 let g_server_failed_connections_count = 0;
 let g_server_failed_connections_max = 5;
@@ -61,7 +48,10 @@ $.cookie.json = true;
  */
 let userSettings = {
     // Server's name
-    server: ''
+    server: '',
+
+    // Default page count
+    page_count: 5
 };
 if ($.cookie('session')) {
     g_session_token = $.cookie('session');
@@ -147,14 +137,23 @@ function wsLogin(login_username, login_password) {
     if (g_debugJs) console.debug('wsLogin, WS url: ', get_ws_url());
     console.info('Login request for: '+login_username);
 
+    // Default is to try using a user token if no credentials are provided
+    let headers = {
+        'App-Token': g_app_token,
+        'Authorization': 'user_token ' + g_user_token
+    };
+    if (login_username !== undefined && login_password !== undefined){
+        headers = {
+            'App-Token': g_app_token,
+            'Authorization': 'Basic ' + btoa(login_username + ':' + login_password)
+        };
+    }
+
     return $.ajax( {
         url: get_ws_url('initSession'),
         type: "GET",
         dataType: "json",
-        headers: {
-            'Authorization': 'Basic ' + btoa(login_username + ':' + login_password),
-            'App-Token': g_app_token
-        },
+        headers: headers,
         contentType: "application/json"
     })
     .done(function(response) {
@@ -172,19 +171,30 @@ function wsLogin(login_username, login_password) {
         if (g_debugJs) console.debug('cookie, new session: ', g_session_token);
 
         $("body").trigger(
-            jQuery.Event("user_signed_in", {message: "Welcome " + login_username + "."}));
+            $.Event("user_signed_in", {message: "Welcome " + login_username + "."}));
     })
     .fail(function(jqXHR, textStatus) {
         if (g_debugJs) console.debug('wsLogin - fail', jqXHR);
-        if (g_debugJs) console.debug('wsLogin - fail', jqXHR.status);
-        if (jqXHR.status === 401) {
+        if (jqXHR.status === 400) {
+            console.warn("Access forbidden.");
+            let error_code = jqXHR.responseJSON[0];
+            let error_message = jqXHR.responseJSON[1];
+            $.each(jqXHR.responseJSON, function (index, string) {
+                if (g_debugJs) console.debug(index, string)
+            });
+
+            $("body").trigger(
+                $.Event("server_denied",
+                    {message: 'Connexion impossible avec le serveur configuré.',
+                        error_code: error_code, error_message: error_message}));
+        } else if (jqXHR.status === 401) {
             console.warn("Access denied.");
             $.each(jqXHR.responseJSON, function (index, string) {
                 if (g_debugJs) console.debug(index, string)
             });
 
             $("body").trigger(
-                jQuery.Event("user_denied",
+                $.Event("user_denied",
                     {message: "Access denied, check your credentials and try again."}));
 
             $("#login-alert").show();
@@ -219,12 +229,26 @@ function wsLogout() {
         console.info('Bye!');
 
         $("body").trigger(
-            jQuery.Event("user_signed_out", {message: "Bye " + userSettings.user_name + "."}));
+            $.Event("user_signed_out", {message: "Bye " + userSettings.user_name + "."}));
     })
     .fail(function(jqXHR, textStatus) {
         if (g_debugJs) console.debug('wsLogout - fail', jqXHR);
-        console.error('Logout failed !');
-        console.error(jqXHR, textStatus);
+        if (jqXHR.status === 400) {
+            console.warn("Access forbidden.");
+            let error_code = jqXHR.responseJSON[0];
+            let error_message = jqXHR.responseJSON[1];
+            $.each(jqXHR.responseJSON, function (index, string) {
+                if (g_debugJs) console.debug(index, string)
+            });
+
+            $("body").trigger(
+                $.Event("server_denied",
+                    {message: 'Connexion impossible avec le serveur configuré.',
+                        error_code: error_code, error_message: error_message}));
+        } else {
+            console.error('Logout failed !');
+            console.error(jqXHR, textStatus);
+        }
     })
     .always(function() {
         $.removeCookie('session');
@@ -234,20 +258,8 @@ function wsLogout() {
 /*
  * Call an API endpoint
  */
-function wsCall(sEndpoint) {
-    let params = [];
-    let parameters = {};
-    if (g_debugJs) {
-        parameters.debug = '1';
-    }
-    for (let i = 1; i < arguments.length; i++) {
-        let object = arguments[i];
-        for (let property in object) {
-            if (object[property]) parameters[property]=object[property];
-        }
-    }
-    params.push(parameters);
-    if (g_debugJs) console.debug('wsCall, endpoint: ' + sEndpoint + ', parameters: ', params);
+function wsCall(sEndpoint, parameters) {
+    if (g_debugJs) console.debug('wsCall, endpoint: ' + sEndpoint + ', parameters: ', parameters);
 
     let start = new Date().getTime();
 
@@ -260,7 +272,7 @@ function wsCall(sEndpoint) {
             'Session-Token': g_session_token
         },
         contentType: "application/json",
-        // data: params
+        data: parameters
     })
     .done(function(jqXHR) {
     let duration = (new Date().getTime() - start);
@@ -273,13 +285,16 @@ function wsCall(sEndpoint) {
     })
     .fail(function(jqXHR, textStatus) {
         if (jqXHR.status === 401) {
-            if (g_debugJs) console.debug("Access denied.");
+            let error_code = jqXHR.responseJSON[0];
+            let error_message = jqXHR.responseJSON[1];
             $.each(jqXHR.responseJSON, function (index, string) {
                 if (g_debugJs) console.debug(index, string)
             });
 
             $("body").trigger(
-                jQuery.Event("user_unauthorized", {message: "Trying to get " + sEndpoint + " is not allowed!"}));
+                $.Event("user_unauthorized",
+                    {message: 'Accès non autorisé au serveur configuré.',
+                        error_code: error_code, error_message: error_message}));
         } else {
             console.error("wsCall error: ", sEndpoint);
             console.error(textStatus, jqXHR);
@@ -312,6 +327,7 @@ function setCurrentServer(server, comment, url, db) {
     if (g_debugJs) console.debug('setCurrentServer, server: ', server);
     if (server) {
         // Set current server address/name
+        g_server = server;
         userSettings.server_name = server;
         $("#gd_server_name").val(server);
     }
@@ -392,10 +408,9 @@ function getServerAvailability(refresh) {
         // Nothing to do with it ...
         g_server_available = true;
         g_server_failed_connections_count = 0;
-        // Update UI - no error message, connection button is enabled
-        $("#server-available").show();
-        $("#server-alert").hide();
-        $("#login-submit").toggleClass('disabled', false);
+
+        $("body").trigger(
+            $.Event("server_online", {message: "The server is available."}));
     })
     .fail(function(jqXHR, textStatus) {
         console.error("Server connection failed: " + textStatus + " !");
@@ -404,13 +419,11 @@ function getServerAvailability(refresh) {
         g_server_available=false;
         g_server_failed_connections_count++;
         if (g_server_failed_connections_count > g_server_failed_connections_max) {
+            $("body").trigger(
+                $.Event("server_offline", {message: "The server is not available!"}));
+
             console.error('Server connection is not available after ' + g_server_failed_connections_max + ' retries !');
         }
-
-        // Update UI - error message, connection button is disabled
-        $("#server-available").hide();
-        $("#server-alert").show();
-        $("#login-submit").toggleClass('disabled', true);
 
         // Schedule a retry
         if (refresh && ! serverConnectionTimer) {
@@ -540,12 +553,7 @@ function getActiveEntities() {
 /*
  * Get all items
  */
-function getItems(item_type) {
-    let args = new Array(arguments.length);
-    for(let i = 1; i < args.length; ++i) {
-        args[i] = arguments[i];
-    }
-
+function getItems(item_type, parameters) {
     /*
      * API doc available arguments:
         expand_dropdowns (default: false): show dropdown name instead of id. Optional.
@@ -558,20 +566,104 @@ function getItems(item_type) {
         is_deleted (default: false): Return deleted element. Optional.
      */
 
-    if (g_debugJs) console.debug('getItems, type: ' + item_type + ', parameters: ', args);
+    if (g_debugJs) console.debug('getItems, type: ' + item_type + ', parameters: ', parameters);
 
-    return wsCall(item_type, args)
+    return wsCall(item_type, parameters)
+}
+
+/*
+ * Search options for an item type
+ */
+function searchOptions(item_type, parameters) {
+    /*
+     * API doc available arguments:
+        raw: return searchoption uncleaned (as provided by core)
+     */
+
+    if (g_debugJs) console.debug('searchOptions, type: ' + item_type + ', parameters: ', parameters);
+
+    return wsCall('listSearchOptions/' + item_type, parameters)
+}
+
+/*
+ * Search items
+ */
+function searchItems(item_type, parameters) {
+    /*
+     * API doc available arguments:
+        criteria: array of criterion objects to filter search. Optional. Each criterion object must provide:
+            link: (optional for 1st element) logical operator in [AND, OR, AND NOT, AND NOT].
+            field: id of the searchoption.
+            searchtype: type of search in [contains¹, equals², notequals², lessthan, morethan, under, notunder].
+            value: the value to search.
+
+        ¹ - contains will use a wildcard search per default. You can restrict at the beginning using the ^
+        character, and/or at the end using the $ character.
+        ² - equals and notequals are designed to be used with dropdowns. Do not expect those operators to search
+        for a strictly equal value (see ¹ above).
+
+        Ex:
+            "criteria": [
+                { "field": 1, "searchtype": 'contains', "value": '' },
+                { "link": 'AND', "field": 31, "searchtype": 'equals', "value": 1 }
+            ]
+
+        metacriteria (optional): array of meta-criterion objects to filter search. Optional.
+        A meta search is a link with another itemtype (ex: Computer with softwares).
+        Each meta-criterion object must provide:
+            link: logical operator in [AND, OR, AND NOT, AND NOT]. Mandatory.
+            itemtype: second itemtype to link.
+            field: id of the searchoption.
+            searchtype: type of search in [contains¹, equals², notequals², lessthan, morethan, under, notunder].
+            value: the value to search.
+
+        Ex:
+            "metacriteria": [
+                { "link": 'AND', "itemtype": 'Monitor', "field": 2, "searchtype": 'contains', "value": '' },
+                { "link": 'AND', "itemtype": 'Monitor', "field": 3, "searchtype": 'contains', "value": '' }
+            ]
+
+        sort (default 1): id of the searchoption to sort by. Optional.
+        order (default ASC): ASC - Ascending sort / DESC Descending sort. Optional.
+        range (default 0-50): a string with a couple of number for start and end of pagination separated by a '-'.
+        Ex: 150-200. Optional.
+
+        forcedisplay: array of columns to display (default empty = use display preferences and searched criteria).
+        Some columns will be always presents (1: id, 2: name, 80: Entity). Optional.
+
+        rawdata (default false): a boolean for displaying raws data of the Search engine of GLPI (like SQL request,
+        full searchoptions, etc)
+
+        withindexes (default false): a boolean to retrieve rows indexed by items id. By default this option is set
+        to false, because order of JSON objects (which are identified by index) cannot be garrantued (from
+        http://json.org/ : An object is an unordered set of name/value pairs). So, we provide arrays to
+        guarantying sorted rows.
+
+        uid_cols (default false): a boolean to identify cols by the 'uniqid' of the searchoptions instead of
+        a numeric value (see List searchOptions and 'uid' field)
+
+        giveItems (default false): a boolean to retrieve the data with the html parsed from core, new data are provided in data_html key.
+
+        Returns:
+            count: 1
+            data: [
+            // Array of found objects
+            ]
+            length: 1
+            order: "ASC"
+            sort: 1
+            totalcount: 1
+     */
+
+    if (g_debugJs) console.debug('searchItems, type: ' + item_type + ', parameters: ', parameters);
+
+    return wsCall('search/' + item_type, parameters)
 }
 
 /*
  * Get an item
  */
-function getItem(item_type, items_id) {
-    let args = new Array(arguments.length);
-    for(let i = 2; i < args.length; ++i) {
-        args[i] = arguments[i];
-    }
-
+function getItem(item_type, items_id, parameters) {
     /*
      * API doc available arguments:
         id: unique identifier of the itemtype. Mandatory.
@@ -593,18 +685,22 @@ function getItem(item_type, items_id) {
         with_logs: Retrieve historical. Optional.
      */
 
-    if (g_debugJs) console.debug('getItem, type: ' + item_type + ', id: ' + items_id + ', parameters: ', args);
+    // if (g_debugJs) console.debug('getItem, type: ' + item_type + ', id: ' + items_id + ', parameters: ', parameters);
 
-    return wsCall(item_type + '/' + items_id, args)
+    return wsCall(item_type + '/' + items_id, parameters)
 }
 
+
+/*
+ * Get an entity information
+ */
 function getEntity(id, current) {
     if (current === undefined) {
         current = false;
     }
 
     return $.when(
-        getItem('Entity', id, {"expand_dropdowns": true })
+        getItem('Entity', id, {expand_dropdowns: '1'})
     ).done(function(entity) {
         console.info("-/- got entity: ", entity.completename);
         if (current) {
@@ -622,6 +718,117 @@ function getEntity(id, current) {
     });
 }
 
+
+/*
+ * Get a user information
+ */
+function getUser(id) {
+    if (id === undefined) {
+        id = userSettings.user_id;
+    }
+
+    return $.when(
+        getItem('User', id, {expand_dropdowns: '1'})
+    ).done(function(user) {
+        console.info("-/- got user information: ", user);
+
+        // Store user information
+        userSettings.user_data = user;
+    });
+}
+
+
+/*
+ * Get some tickets
+ */
+function getNewTickets() {
+    let parameters = {
+        "criteria": [
+            { "field": 12, "searchtype": 'equals', "value": '1' }
+        ]
+    };
+    return getTickets("tickets_new", "Nouveaux tickets", parameters);
+}
+function getProgressingTickets() {
+    let parameters = {
+        "criteria": [
+            { "field": 12, "searchtype": 'equals', "value": 'process' }
+        ]
+    };
+    return getTickets("tickets_progressing", "Tickets en cours", parameters);
+}
+function getSuspendedTickets() {
+    let parameters = {
+        "criteria": [
+            { "field": 12, "searchtype": 'equals', "value": '4' }
+        ]
+    };
+    return getTickets("tickets_suspended", "Tickets en attente", parameters);
+}
+function getClosedTickets() {
+    let parameters = {
+        "criteria": [
+            { "field": 12, "searchtype": 'equals', "value": 'old' }
+        ]
+    };
+    return getTickets("tickets_closed", "Tickets résolus et clos", parameters);
+}
+function getTickets(table, title, parameters) {
+
+    parameters.sort = '1';
+    parameters.order = "ASC";
+    parameters.range = "0-" + (userSettings.page_count - 1);
+
+    // Get all possible tickets
+    return $.when(
+        searchItems('Ticket', parameters)
+    ).done(function(tickets) {
+        if (g_debugJs) console.debug('Found tickets: ', table, tickets);
+
+        // Update tickets count
+        $("#" + table + " span.badge:nth-child(2)").text(tickets.count);
+        $("#" + table + " span.badge:nth-child(1)").text(tickets.totalcount);
+
+        if ($("#" + table).children().length === 0) {
+            // Build table from the template
+            let html_template = $("#tpl-tickets-table").html();
+            // $("#" + table).
+            $("#tickets-tabs").
+            append(html_template
+            .replace(/{{table}}/g, table)
+            .replace(/{{title}}/g, title)
+            .replace(/{{count}}/g, tickets.count)
+            .replace(/{{totalcount}}/g, tickets.totalcount)
+            );
+        }
+        // Update table content
+        // Get the Ticket item template
+        let html_template = $("#tpl-tickets-row").html();
+        $.each(tickets.data, function (index, ticket) {
+            if (g_debugJs) console.debug('Ticket:', ticket);
+            // ticket contains:
+            // 1: "Appel Station de Saint-Gervais"
+            // 2: 114
+            // 3: 3
+            // 7: "Développement logiciel > Softkiosk"
+            // 12: 5
+            // 13: null
+            // 15: "2019-01-04 14:15:00"
+            // 80: "Entité racine > eLiberty"
+            // 151: null
+            // Iterate tickets fields
+            let row = html_template;
+            $.each(ticket, function (idx, value) {
+                // if (g_debugJs) console.debug(idx, value, userSettings.tickets_searchOptions[idx].field);
+                let re = new RegExp('{{' + userSettings.tickets_searchOptions[idx].field + '}}',"g");
+                row = row.replace(re, value);
+            });
+
+            $("#" + table + " tbody").append(row);
+        });
+    });
+}
+
 /*
  * Get all Glpi configuration
  * --------------------------------------------------------------------
@@ -632,13 +839,17 @@ function getConfiguration() {
 
     return $.when(
         getFullSession(),
-        getGlpiConfig(),
-        getMyProfiles(),
-        getActiveProfile(),
-        getMyEntities(),
-        getActiveEntities()
     ).done(function() {
-        console.info('Configuration done.');
+        $.when(
+            getUser(),
+            getGlpiConfig(),
+            getMyProfiles(),
+            getActiveProfile(),
+            getMyEntities(),
+            getActiveEntities()
+        ).done(function() {
+            console.info('Configuration done.');
+        });
     });
 }
 
@@ -723,6 +934,11 @@ $(function() {
                 $.when.apply($, tasks).done(function() {
                     console.info('Got all entities.');
                 });
+
+                $("body").trigger(
+                    $.Event("configuration_done", {message: "Fetched all the configuration data!"}));
+            })
+            .done(function() {
             });
         })
         .always(function() {
@@ -765,17 +981,101 @@ $(function() {
         alertify.warning(event.message);
     });
 
+    // Server events
+    // -----
+    $('body')
+    .on("server_denied", function (event) {
+        // User events - unauthorized access
+        console.error('Server access:', event.message);
+        alertify.error(event.message);
+
+        $("#panel-server").hide();
+        $("#panel-tickets").hide();
+
+        if (g_debugJs) {
+            alertify.error(event.error_code);
+            alertify.error(event.error_message);
+        } else {
+            console.error("Activer le mode debug donnera plus d'information sur l'erreur rencontrée.")
+        }
+    })
+    .on("server_online", function (event) {
+        // User events - sign in
+        console.info('Server is online');
+        alertify.success(event.message);
+
+        $("#panel-server>form").show();
+        $("#panel-tickets").show();
+
+        // Update UI - no error message, connection button is enabled
+        $("#server-available").show();
+        $("#server-alert").hide();
+        $("#login-submit").toggleClass('disabled', false);
+    })
+    .on("server_offline", function (event) {
+        // User events - unauthorized access
+        console.info('Unauthorized access', event.message);
+        alertify.error(event.message);
+
+        $("#panel-server>form").hide();
+        $("#panel-tickets").hide();
+
+        // Update UI - error message, connection button is disabled
+        $("#server-available").hide();
+        $("#server-alert").show();
+        $("#login-submit").toggleClass('disabled', true);
+    });
+
+    // Global events
+    // -----
+    $('body')
+    .on("configuration_done", function (event) {
+        // User events - unauthorized access
+        console.info('Configuration done:', event.message);
+        alertify.success(event.message);
+
+        // Get all possible tickets
+        $.when(
+            searchOptions('Ticket')
+        ).done(function(searchOptions) {
+            if (g_debugJs) console.info('Tickets search options: ', searchOptions);
+
+            // Store tickets search options
+            userSettings.tickets_searchOptions = searchOptions;
+
+            $.when(
+                getNewTickets(),
+                // getProgressingTickets(),
+                // getSuspendedTickets(),
+                // getClosedTickets()
+            ).done(function(new_tickets, progressing_tickets, closed_tickets) {
+                new_tickets = new_tickets[0];
+                if (g_debugJs) console.debug('Found new tickets: ', new_tickets);
+                progressing_tickets = progressing_tickets[0];
+                if (g_debugJs) console.debug('Found progressing tickets: ', progressing_tickets);
+                closed_tickets = closed_tickets[0];
+                if (g_debugJs) console.debug('Found tickets: ', closed_tickets);
+            });
+        });
+    });
+
     // Get server availability.
     if (get_url_parameter('refresh')) {
         g_refreshPeriod = get_url_parameter('refresh');
     }
 
-    // If a session still exist
-    if (! g_session_token) {
-        // Show modal login form
-        $('#modalLogin').modal('show');
+    if (g_user_token) {
+        // A user token is defined, no login is necessary, so simulate a login with empty credentials
+        // Try to log WS user on ...
+        wsLogin();
     } else {
-        // Hide modal login form
-        $('#modalLogin').modal('hide');
+        // If a session still exist
+        if (! g_session_token) {
+            // Show modal login form
+            $('#modalLogin').modal('show');
+        } else {
+            // Hide modal login form
+            $('#modalLogin').modal('hide');
+        }
     }
 });
