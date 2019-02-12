@@ -12,10 +12,10 @@
 
         <!-- Stylesheets
         ================================================== -->
-        <link rel="stylesheet" href="lib/css/bootstrap.min.css" >
-        <link rel="stylesheet" href="lib/css/bootstrap-theme.min.css" >
-        <link rel="stylesheet" href="lib/css/fontawesome.min.css" >
-        <link rel="stylesheet" href="lib/css/alertify.min.css" >
+        <link rel="stylesheet" href="css/vendor/bootstrap.min.css" >
+        <link rel="stylesheet" href="css/vendor/bootstrap-theme.min.css" >
+        <link rel="stylesheet" href="css/vendor/fontawesome.min.css" >
+        <link rel="stylesheet" href="css/vendor/alertify.min.css" >
         <link rel="stylesheet" href="css/glpi_front.css" >
     </head>
 
@@ -23,43 +23,43 @@
 
         <div class="container-fluid">
 
-            <!-- Static navbar -->
+            <!-- Static navigation bar -->
             <nav class="navbar navbar-default">
-               <div class="container-fluid">
-                 <div class="navbar-header">
-                   <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-                     <span class="sr-only">Toggle navigation</span>
-                     <span class="icon-bar"></span>
-                     <span class="icon-bar"></span>
-                     <span class="icon-bar"></span>
-                   </button>
-                   <a class="navbar-brand" data-toggle="modal" data-target="#modalAbout" href="#">Glpi frontend</a>
-                 </div>
-                 <div id="navbar" class="navbar-collapse collapse">
-                   <ul class="nav navbar-nav">
-                     <li class="active"><a href="#">Home</a></li>
-                     <li><a data-toggle="modal" data-target="#modalAbout" href="#">About</a></li>
-                     <li><a href="#">Contact</a></li>
-                     <li class="dropdown">
-                       <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
-                       <ul class="dropdown-menu">
-                         <li><a href="#">Action</a></li>
-                         <li><a href="#">Another action</a></li>
-                         <li><a href="#">Something else here</a></li>
-                         <li role="separator" class="divider"></li>
-                         <li class="dropdown-header">Nav header</li>
-                         <li><a href="#">Separated link</a></li>
-                         <li><a href="#">One more separated link</a></li>
-                       </ul>
-                     </li>
-                   </ul>
-                   <ul class="nav navbar-nav navbar-right">
-                     <li><a href="#"><strong><i id="loading" class="fas fa-1x fa-spinner"></i></strong></a></li>
-                     <li><a href="#" id="logout">Logout<span class="sr-only">(logout)</span></a></li>
-                   </ul>
-                 </div><!--/.nav-collapse -->
-               </div><!--/.container-fluid -->
-             </nav>
+                <div class="container-fluid">
+                    <div class="navbar-header">
+                        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-menu" aria-expanded="false" aria-controls="navbar">
+                            <span class="sr-only">Toggle navigation</span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </button>
+                        <a class="navbar-brand" data-toggle="modal" data-target="#modalAbout" href="#">Glpi frontend</a>
+                    </div>
+                    <div id="navbar-menu" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav">
+                            <li><a data-toggle="modal" data-target="#modalAbout" href="#">About</a></li>
+                            <li class="active"><a href="#" data-panel="panel-server">Home</a></li>
+                            <li><a href="#" data-panel="panel-tickets">Tickets</a></li>
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
+                                <ul class="dropdown-menu">
+                                    <li><a href="#">Action</a></li>
+                                    <li><a href="#">Another action</a></li>
+                                    <li><a href="#">Something else here</a></li>
+                                    <li role="separator" class="divider"></li>
+                                    <li class="dropdown-header">Nav header</li>
+                                    <li><a href="#">Separated link</a></li>
+                                    <li><a href="#">One more separated link</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                        <ul class="nav navbar-nav navbar-right">
+                            <li><a href="#"><strong><i id="loading" class="fas fa-2x fa-spinner"></i></strong></a></li>
+                            <li style="display: none"><a href="#" id="logout"><i class="fas fa-2x fa-sign-out-alt"></i><span class="sr-only">(Logout)</span></a></li>
+                        </ul>
+                    </div><!--/.nav-collapse -->
+                </div><!--/.container-fluid -->
+            </nav>
 
             <!-- About application popup -->
             <div id="modalAbout" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modalAboutLabel">
@@ -163,6 +163,52 @@
             <div id="panel-tickets" class="jumbotron" style="display: none">
                 <h2><i class="fas fa-1x fa-tag"></i>&nbsp;Tickets</h2>
 
+                <div class="row">
+                    <div class="col-xs-12 col-sm-6">
+                        <div class="panel panel-default">
+                            <div class="panel-heading" data-toggle="collapse" data-target="#tickets-pie-graph" aria-expanded="true">
+                                <div class="row">
+                                    <div class="col-xs-9">
+                                        <h4 class="panel-title">
+                                            <i class="fas fa-chart-pie pull-left"></i>&nbsp;Répartition des tickets
+                                        </h4>
+                                    </div>
+                                    <div class="col-xs-3 text-right">
+                                        <i class="fas fa-chevron-up"></i><i class="fas fa-chevron-down"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="tickets-pie-graph" class="panel-body panel-collapse collapse in">
+                                <!-- Chart -->
+                                <canvas></canvas>
+                                <div class="row title">
+                                    <div class="text-center">
+                                        <span class="text-muted">-/-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xs-12 col-sm-6">
+                        <div class="panel panel-default">
+                            <div class="panel-heading" data-toggle="collapse" data-target="#tickets-counters" aria-expanded="true">
+                                <div class="row">
+                                    <div class="col-xs-9">
+                                        <h4 class="panel-title">
+                                            <i class="fas fa-calculator pull-left"></i>&nbsp;Compteurs des tickets
+                                        </h4>
+                                    </div>
+                                    <div class="col-xs-3 text-right">
+                                        <i class="fas fa-chevron-up"></i><i class="fas fa-chevron-down"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="tickets-counters" class="panel-body panel-collapse collapse in">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="panel-group" id="tickets-tabs" role="tablist" aria-multiselectable="true">
                 </div>
             </div>
@@ -250,27 +296,33 @@
         <!-- Placed at the end of the document so the pages load faster -->
         <!-- Scripts
         ================================================== -->
-        <script src="lib/js/jquery-1.12.0.min.js"></script>
-        <script src="lib/js/bootstrap.min.js"></script>
-        <script src="lib/js/moment.min.js"></script>
-        <script src="lib/js/jquery.cookie.js"></script>
-        <script src="lib/js/jquery.jclock.js"></script>
-        <script src="lib/js/alertify.min.js"></script>
+        <script src="js/vendor/jquery-1.12.0.min.js"></script>
+        <script src="js/vendor/bootstrap.min.js"></script>
+        <script src="js/vendor/moment.min.js"></script>
+        <script src="js/vendor/jquery.cookie.js"></script>
+        <script src="js/vendor/jquery.number.js"></script>
+        <script src="js/vendor/jquery.jclock.js"></script>
+        <script src="js/vendor/jquery.sortElements.js"></script>
+        <script src="js/vendor/alertify.min.js"></script>
+        <script src="js/vendor/Chart.min.js"></script>
         <script src="js/glpi_connection.js"></script>
         <script src="js/glpi_front.js"></script>
 
-        <!-- Tickets table templates -->
+        <!-- Tickets table templates - __XxX__ will be replaced on tickets loading
+            Add data-parent="#tickets-tabs" in the panel-heading to make a self-collapsible panels accordion
+        -->
         <script id="tpl-tickets-table" type="text/template">
-            <div class="panel panel-default" id="__table__">
+            <div id="__table__" class="panel panel-default" aria-expanded="false" data-order="__order__">
                 <div class="panel-heading" role="tab" data-toggle="collapse" data-target="#__table___panel" id="__table___heading">
                     <div class="row">
-                        <div class="col-sm-9">
-                            <strong>__title__</strong>
+                        <div class="col-xs-9">
+                            <h4 class="panel-title">
+                                <i class="fas fa-table pull-left"></i>&nbsp;__title__
+                            </h4>
                         </div>
-                        <div class="col-sm-3">
-                            <div class="pull-right"><span class="badge">__totalcount__</span></div>
-                            <div class="pull-right">&nbsp;<strong>/</strong>&nbsp;</div>
-                            <div class="pull-right"><span class="badge">__count__</span></div>
+                        <div class="col-xs-3 text-right">
+                            <span class="badge">__count__</span>&nbsp;<strong>/</strong>&nbsp;<span class="badge" style="margin-right: 20px">__totalcount__</span>
+                            <i class="fas fa-chevron-up pull-right"></i><i class="fas fa-chevron-down pull-right"></i>
                         </div>
                     </div>
                 </div>
@@ -283,19 +335,29 @@
                     </nav>
                     <table class="table table-condensed table-responsive table-tickets">
                         <thead><tr>
-                            <th>__15__</th>
-                            <th>__19__</th>
-                            <th>__16__</th>
-                            <th>__17__</th>
-                            <th>__12__</th>
-                            <th>__14__</th>
-                            <th>__7__</th>
-                            <th>__3__</th>
-                            <th>__10__</th>
-                            <th>__11__</th>
-                            <th>__4__</th>
-                            <th>__1__</th>
-                            <th>__25__</th>
+                            <th></th>
+                            <th>__lbl_15__</th>
+                            <!--<th>__lbl_19__</th>-->
+                            <!--<th>__lbl_16__</th>-->
+                            <th>__lbl_17__</th>
+                            <th>__lbl_37__</th>
+                            <th>__lbl_32__</th>
+                            <th>__lbl_30__</th>
+                            <th>__lbl_82__</th>
+                            <th>__lbl_150__</th>
+                            <th>__lbl_151__</th>
+                            <th>__lbl_152__</th>
+                            <th>__lbl_153__</th>
+                            <th>__lbl_154__</th>
+                            <!--<th>__lbl_12__</th>-->
+                            <th>__lbl_14__</th>
+                            <th>__lbl_7__</th>
+                            <th>__lbl_3__</th>
+                            <th>__lbl_10__</th>
+                            <th>__lbl_11__</th>
+                            <!--<th>__lbl_4__</th>-->
+                            <th>__lbl_1__</th>
+                            <th>__lbl_25__</th>
                         </tr></thead>
                         <tbody></tbody>
                     </table>
@@ -303,21 +365,87 @@
             </div>
         </script>
         <script id="tpl-tickets-row" type="text/template">
-            <tr id="ticket___2__" class="__12__">
+            <tr id="ticket_row___2__" class="__12__" data-toggle="collapse" data-target="#ticket_form___2__" aria-expanded="false">
+                <td><i class="fas fa-chevron-up"></i><i class="fas fa-chevron-down"></i></td>
                 <td>__15__</td>
-                <td>__19__</td>
-                <td>__16__</td>
+                <!--<td>__19__</td>-->
+                <!--<td>__16__</td>-->
                 <td>__17__</td>
-                <td>__12__</td>
+                <td>__37__</td>
+                <td>__32__</td>
+                <td>__30__</td>
+                <td>__82__</td>
+                <td>__150__</td>
+                <td>__151__</td>
+                <td>__152__</td>
+                <td>__153__</td>
+                <td>__154__</td>
+                <!--<td>__12__</td>-->
                 <td>__14__</td>
                 <td>__7__</td>
                 <td>__3__</td>
                 <td>__10__</td>
                 <td>__11__</td>
-                <td>__4__</td>
+                <!--<td>__4__</td>-->
                 <td>__1__</td>
-                <td class="text-overflow">__25__</td>
+                <td class="text"><span>__25__</span></td>
             </tr>
+            <tr id="ticket_form___2__" class="collapse __12__">
+                <td colspan="100">
+                    <form>
+                        <div class="row">
+                            <div class="col-sm-4 text-center">
+                                <label for="f___frm_1__">__lbl_1__</label>
+                                <input readonly type="text" class="form-control" id="f___frm_1__" value="__1__">
+                            </div>
+                            <div class="col-sm-8">
+                                <div class="form-group">
+                                </div>
+                                <div class="form-group">
+                                    <label for="f___frm_25__">__lbl_25__</label>
+                                    <textarea readonly cols="40" rows="8" class="form-control" id="f___frm_25__">__25__</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </td>
+                <td>__15__</td>
+                <!--<td>__19__</td>-->
+                <!--<td>__16__</td>-->
+                <td>__17__</td>
+                <td>__37__</td>
+                <td>__32__</td>
+                <td>__30__</td>
+                <td>__82__</td>
+                <td>__150__</td>
+                <td>__151__</td>
+                <td>__152__</td>
+                <td>__153__</td>
+                <td>__154__</td>
+                <!--<td>__12__</td>-->
+                <td>__14__</td>
+                <td>__7__</td>
+                <td>__3__</td>
+                <td>__10__</td>
+                <td>__11__</td>
+                <!--<td>__4__</td>-->
+                <td>__1__</td>
+                <td class="text"><span>__25__</span></td>
+            </tr>
+        </script>
+        <script id="tpl-counter" type="text/template">
+            <div data-order="__order__">
+            <div id="cpt___table__" class="counter __class__" style="background-color: __color__; __style__">
+                <div class="inner">
+                    <p class="value" style="__cvStyle__">__value__</p>
+                    <p class="name" style="__ctStyle__">__name__</p>
+                </div>
+                <i class="__icon__"></i>
+            </div>
+            </div>
+        </script>
+        <script id="tpl-counter-line-break" type="text/template">
+            <div style="clear: left;"> <hr> </div>
         </script>
     </body>
 </html>

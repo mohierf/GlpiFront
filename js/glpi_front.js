@@ -45,26 +45,56 @@ $.cookie.json = true;
 
 /*
  * User settings
+ * - JSON object
+ * - updated with the content of the conf/default.json file
  */
 let userSettings = {
     // Server's name
     server: '',
 
+    pages: {
+        home_page: "panel-server"
+    },
+
+    // Tickets counters
+    tickets_counters: {
+        // Extra information in conf/default.json
+    },
+
     // Tickets table display
     tickets_table: {
-        // Default page count
-        page_count: 5,
+        // Extra information in conf/default.json
 
-        range_min: 0,
-        range_max: 0,
+        // Tables counts
+        counts: {
+            // For each table, dynamically built information
+            // table: {
+            //     range_min: 0,
+            //     range_max: 0,
+            //     count: 0,
+            //     total_count: 0,
+            // }
+        },
+        // Tables search parameters
+        search_parameters: {
 
-        count: 0,
-        total_count: 0,
-
-        // Default columns
-        forcedisplay: [
-            1, 3, 4, 7, 10, 11, 12, 14, 15, 16, 17, 19, 25
-        ]
+        },
+        // Tables conversion methods
+        convert: {
+            // Examples
+            "1": "boolean",
+            // fa-check if true
+            // fa-times if false
+            "2": "boolean-color",
+            // fa-check if true
+            // fa-times if false
+            "3": "boolean-warning",
+            // fa-times + text-danger si true
+            // fa-check + text-success si true
+            "4": "seconds-duration",
+            // convert 1 seconds to "1 day, 1 hour, 1 minute, 1 second"
+        },
+        translate: {}
     }
 };
 if ($.cookie('session')) {
@@ -72,6 +102,43 @@ if ($.cookie('session')) {
     if (g_debugJs) console.debug('cookie, existing session: ', g_session_token);
 }
 
+/*
+ * Get the application configuration file
+ */
+function getDefaultConfiguration(file_location) {
+    if (g_debugJs) console.info('getDefaultConfiguration: ', file_location);
+
+    return $.getJSON(file_location)
+    .done( function(response) {
+        if (g_debugJs) console.debug('Default configuration: ', response);
+
+        // Update the userSettings variable with the received data
+        $.each(response, function (key, value) {
+            $.each(value, function (sub_key, value) {
+                if (g_debugJs) console.debug("Configuration: ", key, sub_key, value);
+                userSettings[key][sub_key] = value;
+            })
+        })
+    })
+    .fail(function( jqXHR, textStatus, errorThrown ) {
+        console.error('Loading json ' + file_location + ', error: ', errorThrown);
+        console.error(jqXHR);
+    });
+    /*
+       Default configuration may be fetched from the server...
+        As an example, it may be:
+        wsCall('defaultConfiguration', {
+            //debug: true,
+            name: 'default'
+        })
+        .done( function( response) {
+            console.log('Default configuration: ', response);
+        })
+        .fail(function( jqXHR, textStatus, errorThrown ) {
+            console.error(userName+'.json -> error: ', errorThrown)
+        })
+    */
+}
 
 /*
 * Utility function to build WS url
@@ -94,13 +161,14 @@ if ($.cookie('session')) {
 
 */
 function get_ws_url(sEndpoint) {
-    let url = scheme + "://" + g_server + ":" + g_port + '/api';
+    let url = g_scheme + "://" + g_server + ":" + g_port + g_path;
     if (sEndpoint) {
-        url = url + '/' + sEndpoint;
+        url = url + '/api/' + sEndpoint;
+    } else {
+        url = url + '/api_plugin';
     }
     return url;
 }
-
 
 /*
 * Utility function to build status url
@@ -122,9 +190,8 @@ function get_ws_url(sEndpoint) {
    }
 */
 function get_status_url() {
-  return scheme + "://" + g_server + ":" + g_port + '/status';
+  return g_scheme + "://" + g_server + ":" + g_port + '/status';
 }
-
 
 /*
 * Utility function to get URL parameters
@@ -143,10 +210,181 @@ function get_url_parameter(sParam) {
     return null;
 }
 
+/*
+ * Update collapsible state
+ * - read the local storage of the browser to find cs_category values
+ * - set the collapsible state according to the value 1 or 0
+ */
+function _update_collapsible_state(category, key) {
+    if (key !== undefined) {
+        if (localStorage.getItem(key) === "1") {
+            $("#" + category).collapse('show');
+        } else {
+            $("#" + category).collapse('hide');
+        }
+        return;
+    }
+
+    // Collapsed states
+    for (let i = 0; i < localStorage.length; i++) {
+        if (localStorage.key(i).startsWith("cs_" + category)) {
+            let key = localStorage.key(i);
+            let item = key.replace('cs_', '');
+            if (localStorage.getItem(key) === "1") {
+                $("#" + item).collapse('show');
+            } else {
+                $("#" + item).collapse('hide');
+            }
+        }
+    }
+
+}
+
+/*
+ * Create a counter panel
+ */
+function _create_ticket_counter(target, counter, value, prepend){
+    if (prepend === undefined) {
+        prepend = false;
+    }
+
+    // Build table from the template
+    let html_template = $("#tpl-counter").html();
+
+    try {
+        let cpt_config = userSettings.tickets_counters[counter];
+
+        let o_counter = $(html_template
+        .replace(/__table__/g, counter)
+        .replace(/__value__/g, $.number(value, (cpt_config.decimals ? cpt_config.decimals : 0), ',', '.'))
+        .replace(/__name__/g, cpt_config.name)
+        .replace(/__order__/g, cpt_config.order)
+        .replace(/__icon__/g, cpt_config.icon)
+        .replace(/__class__/g, cpt_config.css_class)
+        .replace(/__color__/g, cpt_config.color)
+        .replace(/__style__/g, cpt_config.box_style)
+        .replace(/__cvStyle__/g, cpt_config.value_style)
+        .replace(/__ctStyle__/g, cpt_config.text_style));
+
+        if (prepend) {
+            $("#" + target).prepend(o_counter);
+        } else {
+            $("#" + target).append(o_counter);
+        }
+
+        if (cpt_config.hasOwnProperty('line_break_before') && cpt_config.line_break_before) {
+            o_counter.prepend($($("#tpl-counter-line-break").html()));
+        }
+
+        if (cpt_config.hasOwnProperty('line_break_after') && cpt_config.line_break_after) {
+            o_counter.append($($("#tpl-counter-line-break").html()));
+        }
+    } catch(err) {
+        console.warn("Error creating counter: ", counter);
+    }
+}
+
+/*
+ * Convert a received value to display nicely
+ * - read the local storage of the browser to find cs_category values
+ * - set the collapsible state according to the value 1 or 0
+ */
+function _convert_value(method, value) {
+    if (method === "boolean") {
+        if (value === '1' || value === 1) {
+            value = '<i class="fas fa-1x fa-check"></i>';
+        } else {
+            value = '<i class="fas fa-1x fa-times"></i>';
+        }
+    }
+    if (method === "boolean-warning") {
+        if (value === '1' || value === 1) {
+            value = '<i class="fas fa-1x fa-times text-danger"></i>';
+        } else {
+            value = '<i class="fas fa-1x fa-check text-success"></i>';
+        }
+    }
+    if (method === "seconds") {
+        if (value === 0) {
+            value = userSettings.tickets_table.empty;
+        } else {
+            let sec_num = parseInt(value, 10);
+            let days    = Math.floor(sec_num / 86400);
+            let hours   = Math.floor((sec_num - (days * 86400)) / 3600);
+            let minutes = Math.floor((sec_num - (days * 86400) - (hours * 3600)) / 60);
+            let seconds = sec_num - (days * 86400) - (hours * 3600) - (minutes * 60);
+
+            if (days > 0) {
+                value = days+'j, '+hours+'h, '+minutes+'m, '+seconds+'s';
+            } else if (hours > 0) {
+                value = hours+'h, '+minutes+'m, '+seconds+'s';
+            } else {
+                value = minutes+'m, '+seconds+'s';
+            }
+        }
+    }
+
+    return value;
+}
 
 /*
  * Log in with provided credentials
  */
+function wsLoginPlugin(login_username, login_password) {
+    if (g_debugJs) console.debug('wsLoginPlugin, WS url: ', get_ws_url());
+    console.info('Login request for: '+login_username);
+
+    return $.ajax( {
+        url: get_ws_url(),
+        type: 'POST',
+        dataType: 'json',
+        // contentType: "application/json",
+        data: {
+            method: 'glpi.doLogin',
+            login_name: login_username,
+            login_password: login_password,
+        },
+    })
+    .done(function(response) {
+        console.info('Login - done', response);
+        if (response.faultCode) {
+            console.warn("Access denied.", response, response.faultString);
+
+            $("#login-alert").show();
+
+            $("body").trigger(
+                $.Event("user_denied",
+                    {message: "Accès refusé, vérifiez vos paramètres de connexion et essayez à nouveau."}));
+            $.removeCookie('session');
+        } else {
+            console.info('Access granted.');
+
+            // Hide modal login form
+            $('#modalLogin').modal('hide');
+            $("#login-alert").hide();
+
+            // Store the session token in a cookie
+            g_session_token = response["session"];
+            $.cookie('session', g_session_token);
+            if (g_debugJs) console.debug('cookie, new session: ', g_session_token);
+
+            // User in the login response
+            setCurrentUser(null, response["id"], response["name"], response["realname"] + ' ' + response["firstname"]);
+
+            $("body").trigger(
+                $.Event("user_signed_in", {message: "Welcome " + login_username + "."}));
+        }
+    })
+    .fail(function(jqXHR, textStatus) {
+        if (g_debugJs) console.debug('wsLoginPlugin - fail', jqXHR);
+        console.error('Login failed !');
+        console.error(textStatus, jqXHR);
+    })
+    .always(function() {
+        if (g_debugJs) console.debug('Session cookie removed');
+        $.removeCookie('session');
+    });
+}
 function wsLogin(login_username, login_password) {
     if (g_debugJs) console.debug('wsLogin, WS url: ', get_ws_url());
     console.info('Login request for: '+login_username);
@@ -209,22 +447,52 @@ function wsLogin(login_username, login_password) {
 
             $("body").trigger(
                 $.Event("user_denied",
-                    {message: "Access denied, check your credentials and try again."}));
+                    {message: "Accès refusé, vérifiez vos paramètres de connexion et essayez à nouveau."}));
 
             $("#login-alert").show();
-            $.removeCookie('session');
         } else {
             console.error('Login failed !');
             console.error(textStatus, jqXHR);
         }
     })
     .always(function() {
+        if (g_debugJs) console.debug('Session cookie removed');
+        $.removeCookie('session');
     })
 }
 
 /*
  * Log out from the current session
  */
+function wsLogoutPlugin() {
+    if (g_debugJs) console.debug('wsLogoutPlugin');
+    console.info('Logout request');
+
+    return $.ajax({
+        url: get_ws_url(),
+        type: 'GET',
+        dataType: 'json',
+        data: {
+            method: 'glpi.doLogout',
+            session: g_session_token,
+        }
+    })
+    .done(function(response) {
+        if (g_debugJs) console.debug('wsLogoutPlugin, response: ', response);
+        console.info('Bye!');
+
+        $("body").trigger(
+            $.Event("user_signed_out", {message: "Bye " + userSettings.user_name + "."}));
+    })
+    .fail(function(jqXHR, textStatus) {
+        if (g_debugJs) console.debug('wsLogoutPlugin - fail', jqXHR);
+        console.error('Logout failed !');
+        console.error(jqXHR, textStatus);
+    })
+    .always(function() {
+        $.removeCookie('session');
+    })
+}
 function wsLogout() {
     if (g_debugJs) console.debug('wsLogout');
     console.info('Logout request');
@@ -272,46 +540,93 @@ function wsLogout() {
 /*
  * Call an API endpoint
  */
-function wsCall(sEndpoint, parameters) {
-    if (g_debugJs) console.debug('wsCall, endpoint: ' + sEndpoint + ', parameters: ', parameters);
+function wsCallOld(methodName, parameters) {
+    // Add session and methodNameto the parameters
+    parameters.session = g_session_token;
+    parameters.method = methodName;
+    if (g_debugJs) console.warn('wsCallOld, method: ' + methodName + ', parameters: ', parameters);
 
     let start = new Date().getTime();
 
-    return $.ajax( {
-        url: get_ws_url(sEndpoint),
-        type: "GET",
-        dataType: "json",
-        headers: {
-            'App-Token': g_app_token,
-            'Session-Token': g_session_token
-        },
+    return $.ajax({
+        url: get_ws_url(),
+        type: 'GET',
+        dataType: 'json',
         contentType: "application/json",
         data: parameters
     })
     .done(function(jqXHR) {
-    let duration = (new Date().getTime() - start);
-    if (g_debugJs) console.debug('wsCall: ' + get_ws_url(sEndpoint) + ": '" + duration + "' ms to load.");
-    if (g_debugJs) console.debug('Response: ', jqXHR);
-    g_server_failed_connections_count=0;
-
-    // Send a timer
-    // sendStats('timer', parameters['method'], duration);
+        let duration = (new Date().getTime() - start);
+        if (g_debugJs) console.debug('wsCallOld:' + methodName + ": '" + duration + "' ms to load.");
+        if (g_debugJs) console.debug('Response: ', jqXHR);
+        g_server_failed_connections_count=0;
     })
     .fail(function(jqXHR, textStatus) {
-        if (jqXHR.status === 401) {
-            let error_code = jqXHR.responseJSON[0];
-            let error_message = jqXHR.responseJSON[1];
-            $.each(jqXHR.responseJSON, function (index, string) {
-                if (g_debugJs) console.debug(index, string)
-            });
+        console.error("Server error: " + textStatus + " !");
+        console.error(textStatus, jqXHR);
 
-            $("body").trigger(
-                $.Event("user_unauthorized",
-                    {message: 'Accès non autorisé au serveur configuré.',
-                        error_code: error_code, error_message: error_message}));
-        } else {
-            console.error("wsCall error: ", sEndpoint);
+        jsonValue = jQuery.parseJSON( jqXHR.responseText );
+        console.log('Error message: ', jsonValue.Message);
+    });
+}
+
+
+function wsCall(sEndpoint, parameters) {
+    if (parameters === undefined) {
+        parameters = {};
+    }
+    if (g_debugJs) console.debug('wsCall, endpoint: ' + sEndpoint + ', parameters: ', parameters);
+
+    let start = new Date().getTime();
+
+    if (g_plugin_webservices) {
+        // Add session and methodName to the parameters
+        parameters.debug = "1";
+        parameters.session = g_session_token;
+        parameters.method = sEndpoint;
+    }
+
+    return $.ajax({
+        url: get_ws_url(g_plugin_webservices ? null : sEndpoint),
+        type: g_plugin_webservices ? "POST" : "GET",
+        dataType: "json",
+        headers: g_plugin_webservices ? {} : {
+            'App-Token': g_app_token,
+            'Session-Token': g_session_token
+        },
+        // contentType: "application/json",
+        data: parameters
+    })
+    .done(function(jqXHR) {
+        let duration = (new Date().getTime() - start);
+        if (g_debugJs) console.debug('wsCall:' + get_ws_url(sEndpoint) + ": '" + duration + "' ms to load.");
+        if (g_debugJs) console.debug('Response: ', jqXHR);
+        g_server_failed_connections_count=0;
+    })
+    .fail(function(jqXHR, textStatus) {
+        if (g_plugin_webservices) {
+            console.error("Server error: " + textStatus + " !");
             console.error(textStatus, jqXHR);
+
+            let jsonValue = jQuery.parseJSON( jqXHR.responseText );
+            console.log('Error message: ', jsonValue.Message);
+
+        } else {
+            if (jqXHR.status === 401) {
+                let error_code = jqXHR.responseJSON[0];
+                let error_message = jqXHR.responseJSON[1];
+                $.each(jqXHR.responseJSON, function (index, string) {
+                    if (g_debugJs) console.debug(index, string)
+                });
+
+                $("body").trigger(
+                    $.Event("user_unauthorized",
+                        {message: 'Accès non autorisé au serveur configuré.',
+                            error_code: error_code, error_message: error_message}));
+            } else {
+                console.error("wsCall error: ", sEndpoint);
+                console.error(textStatus, jqXHR);
+            }
         }
 
         g_server_failed_connections_count++;
@@ -329,9 +644,15 @@ function wsCall(sEndpoint, parameters) {
 function setCurrentEntity(entity_id, recursive, entities) {
     console.info("Active entity: ", entity_id, recursive, entities);
 
-    userSettings.entity_id = entity_id;
-    userSettings.entity_recursive = recursive;
-    userSettings.entities = entities;
+    if (entity_id) {
+        userSettings.entity_id = entity_id;
+    }
+    if (recursive) {
+        userSettings.entity_recursive = recursive;
+    }
+    if (entities) {
+        userSettings.entities = entities;
+    }
 }
 
 /*
@@ -413,11 +734,17 @@ function getServerAvailability(refresh) {
     if (g_debugJs) console.info('Server connection refresh is set to ' + refresh + ' seconds.');
 
     // Get active entities to check server connection
-    return wsCall('getActiveEntities')
+    return wsCall(g_plugin_webservices ? 'glpi.listEntities' : 'getActiveEntities')
     .done( function( response ) {
         if (g_debugJs) console.debug('Active entities: ', response);
 
-        userSettings.activeEntities = response["active_entity"];
+        if (response.hasOwnProperty("active_entity")) {
+            // Glpi REST API
+            userSettings.activeEntities = response["active_entity"];
+        } else {
+            // Plugin Web Services
+            userSettings.activeEntities = response;
+        }
 
         // Nothing to do with it ...
         g_server_available = true;
@@ -448,7 +775,7 @@ function getServerAvailability(refresh) {
         }
     })
     .always(function() {
-        // With a small delay to have thevisual effect even if it is very fast...
+        // With a small delay to have the visual effect even if it is very fast...
         window.setTimeout(function() {
             $("#server-available").removeClass('fa-spin');
         }, 500);
@@ -463,12 +790,23 @@ function getServerAvailability(refresh) {
 function getFullSession() {
     if (g_debugJs) console.debug('getFullSession');
 
-    return wsCall('getFullSession')
+    return wsCall(g_plugin_webservices ? 'glpi.getMyInfo' : 'getFullSession')
     .done(function(response) {
         if (g_debugJs) console.debug('getFullSession, response: ', response);
-        let session = response["session"];
 
-        setCurrentUser(session["glpilanguage"], session["glpiID"], session["glpiname"], session["glpirealname"] + ' ' + session["glpifirstname"]);
+        if (response.hasOwnProperty("active_entity")) {
+            // Glpi REST API
+            let session = response["session"];
+
+            // User in the session
+            setCurrentUser(session["glpilanguage"], session["glpiID"], session["glpiname"], session["glpirealname"] + ' ' + session["glpifirstname"]);
+        } else {
+            // Plugin Web Services
+            setCurrentUser(response["language"], response["id"], null, response["realname"] + ' ' + response["firstname"]);
+
+            // Store user information
+            userSettings.user_data = response;
+        }
     })
 }
 
@@ -506,15 +844,31 @@ function getGlpiConfig() {
 function getMyProfiles() {
     if (g_debugJs) console.debug('getMyProfiles');
 
-    return wsCall('getMyProfiles')
+    return wsCall(g_plugin_webservices ? 'glpi.listMyProfiles' : 'getMyProfiles')
     .done(function(response) {
         if (g_debugJs) console.debug('getMyProfiles, response: ', response);
-        userSettings.user_profiles = response["myprofiles"];
 
-        if (g_debugJs) {
-            $.each(userSettings.user_profiles, function (index, profile) {
-                console.debug(profile.id, profile.name, profile.entities)
-            })
+        if (response.hasOwnProperty("myprofiles")) {
+            // Glpi REST API
+            userSettings.user_profiles = response["myprofiles"];
+
+            if (g_debugJs) {
+                $.each(userSettings.user_profiles, function (index, profile) {
+                    console.debug(profile.id, profile.name, profile.entities)
+                })
+            }
+        } else {
+            // Plugin Web Services
+            userSettings.user_profiles = response;
+
+            if (g_debugJs) {
+                $.each(userSettings.user_profiles, function (index, profile) {
+                    console.debug(profile.id, profile.name, profile.current)
+                    if (profile.current) {
+                        userSettings.active_profile = profile;
+                    }
+                })
+            }
         }
     })
 }
@@ -540,15 +894,34 @@ function getActiveProfile() {
 function getMyEntities() {
     if (g_debugJs) console.debug('getMyEntities');
 
-    return wsCall('getMyEntities')
+    return wsCall(g_plugin_webservices ? 'glpi.listMyEntities' : 'getMyEntities')
     .done(function(response) {
         if (g_debugJs) console.debug('getMyEntities, response: ', response);
-        userSettings.user_entities = response["myentities"];
 
-        if (g_debugJs) {
-            $.each(userSettings.user_entities, function (index, entity) {
-                console.debug(entity.id, entity.name)
-            })
+        if (response.hasOwnProperty("myentities")) {
+            // Glpi REST API
+            userSettings.user_entities = response["myentities"];
+
+            if (g_debugJs) {
+                $.each(userSettings.user_entities, function (index, entity) {
+                    console.debug(entity.id, entity.name)
+                })
+            }
+        } else {
+            // Plugin Web Services
+            userSettings.user_entities = response;
+
+            if (userSettings.user_entities) {
+                setCurrentEntity(response[0].id, response[0].recursive, userSettings.user_entities);
+            } else {
+                setCurrentEntity(null, null, userSettings.user_entities);
+            }
+
+            if (g_debugJs) {
+                $.each(userSettings.user_entities, function (index, entity) {
+                    console.debug(entity.id, entity.name, entity)
+                })
+            }
         }
     })
 }
@@ -661,7 +1034,7 @@ function searchItems(item_type, parameters) {
         Returns:
             count: 1
             data: [
-            // Array of found objects
+                // Array of found objects
             ]
             length: 1
             order: "ASC"
@@ -700,10 +1073,15 @@ function getItem(item_type, items_id, parameters) {
      */
 
     // if (g_debugJs) console.debug('getItem, type: ' + item_type + ', id: ' + items_id + ', parameters: ', parameters);
+    if (g_plugin_webservices) {
+        parameters = {
+            'itemtype': item_type,
+            'id': items_id
+        }
+    }
 
-    return wsCall(item_type + '/' + items_id, parameters)
+    return wsCall(g_plugin_webservices ? 'glpi.getObject' : item_type + '/' + items_id, parameters)
 }
-
 
 /*
  * Get an entity information
@@ -716,7 +1094,7 @@ function getEntity(id, current) {
     return $.when(
         getItem('Entity', id, {expand_dropdowns: '1'})
     ).done(function(entity) {
-        console.info("-/- got entity: ", entity.completename);
+        if (g_debugJs) console.debug("Got entity: ", entity.completename);
         if (current) {
             // Set current server address/name
             userSettings.entity_id = entity.id;
@@ -732,7 +1110,6 @@ function getEntity(id, current) {
     })
 }
 
-
 /*
  * Get a user information
  */
@@ -742,57 +1119,37 @@ function getUser(id) {
     }
 
     return $.when(
-        getItem('User', id, {expand_dropdowns: '1'})
+        getItem('User', id, {expand_dropdowns: '0'})
     ).done(function(user) {
-        console.info("Got user information: ", user);
+        console.info("Got signed-in user information");
 
         // Store user information
         userSettings.user_data = user;
+
+        $.Event("user_identified", {message: "Welcome " + user.firstname + " " + user.realname + "."})
     })
 }
-
 
 /*
  * Get some tickets
  */
-function getNewTickets() {
-    let parameters = {
-        "criteria": [
-            { "field": 12, "searchtype": 'equals', "value": '1' }
-        ]
-    };
-    return getTickets("tickets_new", "Nouveaux tickets", parameters);
-}
-function getProgressingTickets() {
-    let parameters = {
-        "criteria": [
-            { "field": 12, "searchtype": 'equals', "value": 'process' }
-        ]
-    };
-    return getTickets("tickets_progressing", "Tickets en cours", parameters);
-}
-function getSuspendedTickets() {
-    let parameters = {
-        "criteria": [
-            { "field": 12, "searchtype": 'equals', "value": '4' }
-        ]
-    };
-    return getTickets("tickets_suspended", "Tickets en attente", parameters);
-}
-function getClosedTickets() {
-    let parameters = {
-        "criteria": [
-            { "field": 12, "searchtype": 'equals', "value": 'old' }
-        ]
-    };
-    return getTickets("tickets_closed", "Tickets résolus et clos", parameters);
-}
-function getTickets(table, title, parameters) {
+function getTickets(table, parameters) {
 
-    parameters.sort = '1';
-    parameters.order = "ASC";
-    parameters.range = "0-" + (userSettings.tickets_table.page_count - 1);
-    parameters.forcedisplay = userSettings.tickets_table.forcedisplay;
+    if (! parameters.hasOwnProperty('sort')) {
+        parameters.sort = '1';
+    }
+    if (! parameters.hasOwnProperty('order')) {
+        parameters.order = "ASC";
+    }
+    if (! parameters.hasOwnProperty('range')) {
+        parameters.range = "0-" + (userSettings.tickets_table.page_count - 1);
+    }
+    if (! parameters.hasOwnProperty('forcedisplay')) {
+        parameters.forcedisplay = userSettings.tickets_table.forcedisplay;
+    }
+    // if (! parameters.hasOwnProperty('giveItems')) {
+    //     parameters.giveItems = false;
+    // }
 
     // Get all possible tickets
     return $.when(
@@ -800,34 +1157,46 @@ function getTickets(table, title, parameters) {
     ).done(function(tickets) {
         if (g_debugJs) console.debug('Found tickets: ', table, tickets);
 
-        userSettings.tickets_table.count = parseInt(tickets["count"]);
-        userSettings.tickets_table.total_count = parseInt(tickets["totalcount"]);
+        userSettings.tickets_table.counts[table] = {};
+        userSettings.tickets_table.counts[table].count = parseInt(tickets["count"]);
+        userSettings.tickets_table.counts[table].total_count = parseInt(tickets["totalcount"]);
 
+        // Create tickets counter
+        if ($("#cpt_" + table).children().length === 0) {
+            _create_ticket_counter("tickets-counters", table, userSettings.tickets_table.counts[table].total_count);
+        }
+
+        // Create tickets table and header
         if ($("#" + table).children().length === 0) {
             // Build table from the template
             let html_template = $("#tpl-tickets-table").html();
+            let cpt_config = userSettings.tickets_counters[table];
+
+            let title = cpt_config.title;
+            if (! title) title = cpt_config.name;
 
             // $("#" + table).
             $("#tickets-tabs").
             append(html_template
             .replace(/__table__/g, table)
+            .replace(/__name__/g, cpt_config.name)
             .replace(/__title__/g, title)
+            .replace(/__order__/g, cpt_config.order)
             .replace(/__count__/g, tickets["count"])
             .replace(/__totalcount__/g, tickets["totalcount"])
             );
+
+            _update_collapsible_state(table);
         }
 
-        // Update tickets count
-        // $("#" + table + " span.badge:nth-child(2)").text(userSettings.tickets_table.count);
-        // $("#" + table + " span.badge:nth-child(1)").text(userSettings.tickets_table.total_count);
-
         // Update navigation
+        // todo - add more tickets with next page
         let range_parser = new RegExp(/(\d+)-(\d+)\/(\d+)/);
         let range = tickets["content-range"].match(range_parser);
         try {
-            userSettings.tickets_table.range_min = parseInt(range[1]);
-            userSettings.tickets_table.range_max = parseInt(range[2]);
-            userSettings.tickets_table.total_count = parseInt(range[3]);
+            userSettings.tickets_table.counts[table].range_min = parseInt(range[1]);
+            userSettings.tickets_table.counts[table].range_max = parseInt(range[2]);
+            userSettings.tickets_table.counts[table].total_count = parseInt(range[3]);
 
             if (userSettings.tickets_table.range_min <= 0) {
                 $("#" + table + " ul.pager li.previous").hide();
@@ -846,63 +1215,519 @@ function getTickets(table, title, parameters) {
         // Update table content
         // Get the Ticket item template
         let html_template = $("#tpl-tickets-row").html();
-        let head_content = $("#" + table + ' thead>tr').html();
+        // Build table header
+        let header = $("#" + table + ' thead>tr');
+        let header_html = header.html();
         let row = null;
-        let head = null;
 
-        if (tickets.data.length > 0) {
-            // Build table header
-            head = head_content;
+        if (tickets.data && tickets.data.length > 0) {
+            // Update table from the options of the provided fields
             $.each(tickets.data[0], function (idx) {
-                head = head.replace(new RegExp('__' + idx + '__',"g"), userSettings.tickets_searchOptions[idx].name);
+                header_html = header_html.replace(new RegExp('__lbl_' + idx + '__',"g"), userSettings.tickets_searchOptions[idx].name);
+                header_html = header_html.replace(new RegExp('__frm_' + idx + '__',"g"), userSettings.tickets_searchOptions[idx].field);
             });
-            $("#" + table + ' thead>tr').html(head);
-        }
-        // Build table rows
-        $.each(tickets.data, function (index, ticket) {
-            if (g_debugJs) console.debug('Ticket:', ticket);
+            header.html(header_html);
+            // // Remove the template fields that were not provided
+            $("#" + table + " thead>tr th:contains('__')" ).remove();
 
-            row = html_template;
-            $.each(ticket, function (idx, value) {
-                if (value && value.hasOwnProperty('length') && value.length > 25) {
-                    row = row.replace(new RegExp('__' + idx + '__',"g"), value.substring(0,25)+'&hellip;');
-                } else {
+            // Build table rows
+            $.each(tickets.data, function (index, ticket) {
+                if (g_debugJs) console.debug('Ticket:', ticket);
+
+                row = html_template;
+                $.each(ticket, function (idx, value) {
+                    // if (value && value.hasOwnProperty('length') && value.length > 25) {
+                    //     row = row.replace(new RegExp('__' + idx + '__',"g"), value.substring(0,25)+'&hellip; XXX');
+                    // }
+                    try {
+                        if (userSettings.tickets_table.translate[idx]) {
+                            value = userSettings.tickets_table.translate[idx][value];
+                        }
+
+                        if (userSettings.tickets_table.convert[idx]) {
+                            value = _convert_value(userSettings.tickets_table.convert[idx], value);
+                        }
+                    } catch(err) {
+                        console.warn("Conversion/translation error: ", idx, value)
+                    }
+                    if (value === null) {
+                        value = userSettings.tickets_table.empty;
+                    }
                     row = row.replace(new RegExp('__' + idx + '__',"g"), value);
-                }
+                    row = row.replace(new RegExp('__lbl_' + idx + '__',"g"), value);
+                    row = row.replace(new RegExp('__frm_' + idx + '__',"g"), value);
+                });
+                $("#" + table + " tbody").append(row);
+                // Remove the template fields that were not provided
+                $("#" + table + " tbody tr:nth-last-child(2) td:contains('__')" ).remove();
+            })
+        } else {
+            // Update table from the options
+            $.each(userSettings.tickets_searchOptions, function (idx, option) {
+                header_html = header_html.replace(new RegExp('__lbl_' + idx + '__',"g"), option.name);
+                header_html = header_html.replace(new RegExp('__frm_' + idx + '__',"g"), option.field);
             });
-            $("#" + table + " tbody").append(row);
-        })
+            header.html(header_html);
+            // // Remove the template fields that were not provided
+            $("#" + table + " thead>tr th:contains('__')" ).remove();
+        }
     })
 }
 
 /*
- * Get all Glpi configuration
+ * Get all Glpi tickets information
  * --------------------------------------------------------------------
- * combine several API requests to get all the global information
  */
-function getConfiguration() {
-    if (g_debugJs) console.debug('getConfiguration');
+function getHelpdeskConfiguration() {
+    if (g_debugJs) console.debug('getHelpdeskConfiguration');
 
-    return $.when(
-        getFullSession(),
-    ).done(function() {
-        $.when(
-            getUser(),
-            getGlpiConfig(),
-            getMyProfiles(),
-            getActiveProfile(),
-            getMyEntities(),
-            getActiveEntities()
-        ).done(function() {
-            console.info('Configuration done.');
+    return wsCall('glpi.getHelpdeskConfiguration')
+}
+function getTicketsDataBis() {
+    if (g_debugJs) console.debug('getTicketsData');
+
+    // Get all possible tickets
+    $("#loading").addClass('fa-spin').addClass('text-warning');
+
+    _update_collapsible_state('tickets');
+
+    $.when(
+        searchOptions('Ticket')
+    ).done(function(searchOptions) {
+        if (g_debugJs) console.debug('Tickets search options: ', searchOptions);
+
+        // Store tickets search options
+        userSettings.tickets_searchOptions = searchOptions;
+        /*
+         * Standard tickets search options:
+         * -----
+            1 Titre
+            2 ID
+            3 Priorité
+            4 Demandeur
+            5 Technicien
+            6 Assigné à un fournisseur
+            7 Catégorie
+            8 Groupe de techniciens
+            9 Source de la demande
+            10 Urgence
+            11 Impact
+            12 Statut
+            13 Éléments associés
+            14 Type
+            15 Date d'ouverture
+            16 Date de clôture
+            17 Date de résolution
+            18 Temps de résolution
+            19 Dernière modification
+            20 Tâches - Catégorie
+            21 Description
+            22 Rédacteur
+            23 Type de solution
+            24 Solution
+            25 Description
+            26 Tâches - Description
+            27 Nombre de suivis
+            28 Tâches - Nombre de tâches
+            29 Source de la demande
+            30 SLAs&nbsp;Temps de résolution
+            31 Type
+            32 SLAs&nbsp;Niveau d'escalade
+            33 Tâches - Statut
+            34 Courriel pour le suivi
+            35 Suivi par courriel
+            36 Date
+            37 SLAs&nbsp;Temps de prise en charge
+            40 Tous les tickets liés
+            41 Nombre de tous les tickets liés
+            42 Coût horaire
+            43 Coût fixe
+            44 Coût matériel
+            45 Durée totale
+            46 Nombre de ticket dupliqués
+            47 Tickets dupliqués
+            48 Coût total
+            49 Coût - Durée
+            50 Tickets parents
+            51 Validation minimale nécessaire
+            52 Validation
+            53 Commentaire de la demande
+            54 Commentaire de la validation
+            55 Statut de validation
+            56 Date de la demande
+            57 Date de la validation
+            58 Demandeur
+            59 Validateur
+            60 Date de création
+            61 Date de la réponse
+            62 Satisfaction
+            63 Commentaires
+            64 Dernière modification par
+            65 Groupe observateur
+            66 Observateur
+            67 Tickets enfants
+            68 Nombre de tickets enfants
+            69 Nombre de tickets parents
+            71 Groupe demandeur
+            80 Entité
+            82 Temps de résolution dépassé
+            83 Lieu
+            84 Numéro du bâtiment
+            85 Numéro de la pièce
+            86 Commentaires du lieu
+            91 Suivi privé
+            92 Tâches - Tâche privée
+            93 Rédacteur
+            94 Tâches - Rédacteur
+            95 Tâches - Technicien responsable
+            96 Tâches - Durée
+            97 Tâches - Date
+            101 Adresse
+            102 Code postal
+            103 Ville
+            104 État
+            105 Pays
+            112 Tâches - Groupe responsable
+            119 Nombre de documents
+            131 Types d'élément associé
+            141 Nombre de problèmes
+            142 Documents
+            150 Délai de prise en compte
+            151 Temps de résolution + Progression
+            152 Délai de clôture
+            153 Délai d'attente
+            154 Délai de résolution
+            155 Temps de prise en charge
+            158 Temps de prise en charge + progression
+            159 Temps de prise en charge dépassé
+            173 Tâches - Date de début
+            174 Tâches - Date de fin
+            175 Tâches - Gabarit de tâche
+            180 Temps interne de résolution
+            181 Temps interne de résolution + progression
+            182 Temps interne de résolution dépassé
+            185 Temps interne de prise en compte
+            186 Temps interne de prise en charge + progression
+            187 Temps interne de prise en charge dépassé
+            190 OLA&nbsp;Temps interne de prise en compte
+            191 OLA&nbsp;Temps interne de résolution
+            192 OLA&nbsp;Niveau d'escalade
+            998 Latitude
+            999 Longitude
+         */
+
+        let tickets_loading = [];
+        $.each(userSettings.tickets_table.search_parameters, function (table, parameters) {
+            if (g_debugJs) console.debug("Get tickets for: ", table, parameters);
+            tickets_loading.push(getTickets(table, parameters));
+        });
+
+        $.when.apply($, tickets_loading)
+        .done(function() {
+            console.info('Got all tickets');
+
+            // Prepare graph data and compute total count
+            let data = [];
+            let labels = [];
+            let colors = [];
+            let total_count = 0;
+            $.each(userSettings.tickets_table.counts, function (index, table) {
+                data.push(table.total_count);
+
+                if (userSettings.tickets_counters.hasOwnProperty(index)) {
+                    let counter = userSettings.tickets_counters[index];
+                    labels.push(counter.name);
+                    colors.push(counter.color);
+                } else {
+                    console.warn("No name/color property for the couter:", index);
+                    labels.push(index);
+                    colors.push("#000");
+                }
+                total_count += table.total_count;
+            });
+
+            // Create tickets total counter
+            if ($("#cpt_tickets_total").children().length === 0) {
+                // Add the counter in prepend mode (true)
+                _create_ticket_counter("tickets-counters","tickets_total", total_count, true);
+            }
+
+            // Order the tickets counters
+            $('#tickets-counters>div').sortElements(function(a, b){
+                return $(a).data('order') > $(b).data('order') ? 1 : -1;
+            });
+
+            // Order the tickets tables
+            $('#tickets-table>div').sortElements(function(a, b){
+                return $(a).data('order') > $(b).data('order') ? 1 : -1;
+            });
+
+            // Update graph
+            let ctx = $("#tickets-pie-graph canvas").get(0).getContext("2d");
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Tickets',
+                        data: data,
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    },
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    hover: {
+                        onHover: function(event,elements) {
+                            $('#pie-graph-tickets').css('cursor', elements[0] ? 'pointer' : 'default');
+                        }
+                    }
+                }
+            });
+            $("#pie-graph-tickets .title").show();
+            $("#pie-graph-tickets .title span").html(total_count + " tickets").show();
         })
     })
+    .always(function() {
+        // With a small delay to have the visual effect even if it is very fast...
+        window.setTimeout(function() {
+            $("#loading").removeClass('fa-spin').removeClass('text-warning');
+        }, 500);
+    })
+}
+
+function getTicketsData() {
+    if (g_debugJs) console.debug('getTicketsData');
+
+    // Get all possible tickets
+    $("#loading").addClass('fa-spin').addClass('text-warning');
+
+    _update_collapsible_state('tickets');
+
+    $.when(
+        searchOptions('Ticket')
+    ).done(function(searchOptions) {
+        if (g_debugJs) console.debug('Tickets search options: ', searchOptions);
+
+        // Store tickets search options
+        userSettings.tickets_searchOptions = searchOptions;
+        /*
+         * Standard tickets search options:
+         * -----
+            1 Titre
+            2 ID
+            3 Priorité
+            4 Demandeur
+            5 Technicien
+            6 Assigné à un fournisseur
+            7 Catégorie
+            8 Groupe de techniciens
+            9 Source de la demande
+            10 Urgence
+            11 Impact
+            12 Statut
+            13 Éléments associés
+            14 Type
+            15 Date d'ouverture
+            16 Date de clôture
+            17 Date de résolution
+            18 Temps de résolution
+            19 Dernière modification
+            20 Tâches - Catégorie
+            21 Description
+            22 Rédacteur
+            23 Type de solution
+            24 Solution
+            25 Description
+            26 Tâches - Description
+            27 Nombre de suivis
+            28 Tâches - Nombre de tâches
+            29 Source de la demande
+            30 SLAs&nbsp;Temps de résolution
+            31 Type
+            32 SLAs&nbsp;Niveau d'escalade
+            33 Tâches - Statut
+            34 Courriel pour le suivi
+            35 Suivi par courriel
+            36 Date
+            37 SLAs&nbsp;Temps de prise en charge
+            40 Tous les tickets liés
+            41 Nombre de tous les tickets liés
+            42 Coût horaire
+            43 Coût fixe
+            44 Coût matériel
+            45 Durée totale
+            46 Nombre de ticket dupliqués
+            47 Tickets dupliqués
+            48 Coût total
+            49 Coût - Durée
+            50 Tickets parents
+            51 Validation minimale nécessaire
+            52 Validation
+            53 Commentaire de la demande
+            54 Commentaire de la validation
+            55 Statut de validation
+            56 Date de la demande
+            57 Date de la validation
+            58 Demandeur
+            59 Validateur
+            60 Date de création
+            61 Date de la réponse
+            62 Satisfaction
+            63 Commentaires
+            64 Dernière modification par
+            65 Groupe observateur
+            66 Observateur
+            67 Tickets enfants
+            68 Nombre de tickets enfants
+            69 Nombre de tickets parents
+            71 Groupe demandeur
+            80 Entité
+            82 Temps de résolution dépassé
+            83 Lieu
+            84 Numéro du bâtiment
+            85 Numéro de la pièce
+            86 Commentaires du lieu
+            91 Suivi privé
+            92 Tâches - Tâche privée
+            93 Rédacteur
+            94 Tâches - Rédacteur
+            95 Tâches - Technicien responsable
+            96 Tâches - Durée
+            97 Tâches - Date
+            101 Adresse
+            102 Code postal
+            103 Ville
+            104 État
+            105 Pays
+            112 Tâches - Groupe responsable
+            119 Nombre de documents
+            131 Types d'élément associé
+            141 Nombre de problèmes
+            142 Documents
+            150 Délai de prise en compte
+            151 Temps de résolution + Progression
+            152 Délai de clôture
+            153 Délai d'attente
+            154 Délai de résolution
+            155 Temps de prise en charge
+            158 Temps de prise en charge + progression
+            159 Temps de prise en charge dépassé
+            173 Tâches - Date de début
+            174 Tâches - Date de fin
+            175 Tâches - Gabarit de tâche
+            180 Temps interne de résolution
+            181 Temps interne de résolution + progression
+            182 Temps interne de résolution dépassé
+            185 Temps interne de prise en compte
+            186 Temps interne de prise en charge + progression
+            187 Temps interne de prise en charge dépassé
+            190 OLA&nbsp;Temps interne de prise en compte
+            191 OLA&nbsp;Temps interne de résolution
+            192 OLA&nbsp;Niveau d'escalade
+            998 Latitude
+            999 Longitude
+         */
+
+        let tickets_loading = [];
+        $.each(userSettings.tickets_table.search_parameters, function (table, parameters) {
+            if (g_debugJs) console.debug("Get tickets for: ", table, parameters);
+            tickets_loading.push(getTickets(table, parameters));
+        });
+
+        $.when.apply($, tickets_loading)
+        .done(function() {
+            console.info('Got all tickets');
+
+            // Prepare graph data and compute total count
+            let data = [];
+            let labels = [];
+            let colors = [];
+            let total_count = 0;
+            $.each(userSettings.tickets_table.counts, function (index, table) {
+                data.push(table.total_count);
+
+                if (userSettings.tickets_counters.hasOwnProperty(index)) {
+                    let counter = userSettings.tickets_counters[index];
+                    labels.push(counter.name);
+                    colors.push(counter.color);
+                } else {
+                    console.warn("No name/color property for the couter:", index);
+                    labels.push(index);
+                    colors.push("#000");
+                }
+                total_count += table.total_count;
+            });
+
+            // Create tickets total counter
+            if ($("#cpt_tickets_total").children().length === 0) {
+                // Add the counter in prepend mode (true)
+                _create_ticket_counter("tickets-counters","tickets_total", total_count, true);
+            }
+
+            // Order the tickets counters
+            $('#tickets-counters>div').sortElements(function(a, b){
+                return $(a).data('order') > $(b).data('order') ? 1 : -1;
+            });
+
+            // Order the tickets tables
+            $('#tickets-table>div').sortElements(function(a, b){
+                return $(a).data('order') > $(b).data('order') ? 1 : -1;
+            });
+
+            // Update graph
+            let ctx = $("#tickets-pie-graph canvas").get(0).getContext("2d");
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Tickets',
+                        data: data,
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    },
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    hover: {
+                        onHover: function(event,elements) {
+                            $('#pie-graph-tickets').css('cursor', elements[0] ? 'pointer' : 'default');
+                        }
+                    }
+                }
+            });
+            $("#pie-graph-tickets .title").show();
+            $("#pie-graph-tickets .title span").html(total_count + " tickets").show();
+        })
+    })
+    .always(function() {
+        // With a small delay to have the visual effect even if it is very fast...
+        window.setTimeout(function() {
+            $("#loading").removeClass('fa-spin').removeClass('text-warning');
+        }, 500);
+    })
+}
+
+function getTest(item_type, items_id, parameters) {
+    if (g_debugJs) console.warn('getTest, type: ' + item_type + ', id: ' + items_id + ', parameters: ', parameters);
+
+    return wsCallOld('test', parameters)
 }
 
 $(function() {
     "use strict";
 
     let page_body = $('body');
+    let modal_login = $('#modalLogin');
 
     // Application about panel
     $("#app_version").val(applicationManifest.version);
@@ -914,19 +1739,66 @@ $(function() {
     g_debugJs = get_url_parameter('debug') ? true : g_debugJs;
     if (g_debugJs) console.debug('Glpi frontend, version:', applicationManifest.version);
 
+    // Get the default application configuration
+    getDefaultConfiguration('conf/default.json');
+
     // Set current server ...
     if (get_url_parameter('server')) {
         setCurrentServer(get_url_parameter('server'));
     } else {
         setCurrentServer(g_server);
     }
+    if (get_url_parameter('path')) {
+        g_path = get_url_parameter('path');
+    }
+
+    // Current credentials
+    if (get_url_parameter('app_token')) {
+        g_app_token = get_url_parameter('app_token');
+    }
+    if (get_url_parameter('user_token')) {
+        g_user_token = get_url_parameter('user_token');
+    }
 
     // Focus in modal windows...
-    $('#modalLogin')
+    modal_login
     .on('shown.bs.modal', function () {
-        // Focus in the username field
-        $('#login_username').focus();
+        // // Focus in the username field
+        // $('#login_username').focus();
         $(document).off('focusin.modal');
+    });
+
+    // Collapsed elements
+    page_body
+    .on('shown.bs.collapse', function (event) {
+        localStorage.setItem('cs_' + event.target.id, "1");
+    })
+    .on('hidden.bs.collapse', function (event) {
+        localStorage.setItem('cs_' + event.target.id, "0");
+    });
+
+    // Menu choices
+    page_body
+    .on('click', "#navbar-menu a[href]", function () {
+        if (g_debugJs) console.debug("Clicked: ", $(this));
+
+        if (! $(this).data("toggle")) {
+            $("#navbar-menu li.active").removeClass("active");
+            $(this.parentElement).addClass('active');
+        }
+
+        // Hide / display the page panels
+        if ($(this).data("panel")) {
+            if (localStorage.getItem("page_current")) {
+                $("#" + localStorage.getItem("page_current")).fadeOut(1000);
+            } else {
+                if (userSettings.pages.home_page) {
+                    $("#" + userSettings.home_page).fadeOut(1000);
+                }
+            }
+            $("#" + $(this).data("panel")).fadeIn(1000);
+            localStorage.setItem("page_current", $(this).data("panel"));
+        }
     });
 
     // Log in/out management
@@ -939,7 +1811,11 @@ $(function() {
         if (username.length > 0 && password.length > 0) {
             $("#login-alert").hide();
             // Try to log WS user on ...
-            wsLogin(username, password);
+            if (g_plugin_webservices) {
+                wsLoginPlugin(username, password);
+            } else {
+                wsLogin(username, password);
+            }
         } else {
             alert('Merci de renseigner toutes les informations demandées.');
         }
@@ -949,7 +1825,11 @@ $(function() {
     .on("click", '#logout', function () {
         // Log out management
         if (g_debugJs) console.debug('Log out request ...');
-        wsLogout();
+        if (g_plugin_webservices) {
+            wsLogoutPlugin();
+        } else {
+            wsLogout();
+        }
     });
 
     // User events
@@ -968,33 +1848,56 @@ $(function() {
             console.info('Configured server is available');
 
             console.info('Getting configuration...');
-            // Get current session parameters and configuration
+            let info_to_get = [];
+            if (g_plugin_webservices) {
+                info_to_get.push(getMyProfiles());
+                info_to_get.push(getMyEntities());
+            } else {
+                info_to_get.push(getUser());
+                info_to_get.push(getGlpiConfig());
+                info_to_get.push(getMyProfiles());
+                info_to_get.push(getActiveProfile());
+                info_to_get.push(getMyEntities());
+                info_to_get.push(getActiveEntities());
+            }
+
+            // Get current session (before all other) parameters and configuration
             $.when(
-                getConfiguration()
+                getFullSession(),
             ).done(function() {
-                console.info('Getting configured entities...');
-                let tasks = [];
-                $.each(userSettings.entities, function (index, entity) {
-                    if (g_debugJs) console.debug("Get information for entity: ", entity.id);
-                    tasks.push(getEntity(entity.id, userSettings.entity_id === entity.id));
-                })
+                $.when.apply($, info_to_get)
+                .done(function() {
+                    console.info('Getting configured entities...');
+                    let entities_to_get = [];
+                    $.each(userSettings.entities, function (index, entity) {
+                        if (g_debugJs) console.debug("Get information for entity: ", entity.id);
+                        entities_to_get.push(getEntity(entity.id, userSettings.entity_id === entity.id));
+                    });
 
-                $.when.apply($, tasks).done(function() {
-                    console.info('Got all entities.');
-                })
+                    /*
+                     * There is still an asynchronous activity to get all active entities data,
+                     * but the configuration may be considered as finished.
+                     */
+                    $.when.apply($, entities_to_get).done(function() {
+                        console.info('Got all active entities data.');
 
-                $("body").trigger(
-                    $.Event("configuration_done", {message: "Fetched all the configuration data!"}));
-            })
-            .done(function() {
+                        // With a small delay to have the visual effect even if it is very fast...
+                        window.setTimeout(function() {
+                            $("#loading").removeClass('fa-spin').removeClass('text-warning');
+                        }, 500);
+                    });
+
+                    console.info('Configuration done.');
+                    $("body").trigger(
+                        $.Event("configuration_done", {message: "Fetched all the configuration data!"}));
+                })
             })
         })
-        .always(function() {
-            // With a small delay to have thevisual effect even if it is very fast...
-            window.setTimeout(function() {
-                $("#loading").removeClass('fa-spin').removeClass('text-warning');
-            }, 500);
-        })
+    })
+    .on("user_identified", function (event) {
+        // User events - sign in
+        console.info('User identified');
+        alertify.success(event.message);
     })
     .on("user_signed_out", function (event) {
         // User events - sign out
@@ -1005,18 +1908,18 @@ $(function() {
         $.each($('#glpi-data input'), function (index, field) {
             if (g_debugJs) console.debug(index, field);
             field.value = '';
-        })
+        });
 
         $.each($('#glpi-data textarea'), function (index, field) {
             if (g_debugJs) console.debug(index, field);
             field.value = '';
-        })
+        });
 
-        // With a small delay to have thevisual effect even if it is very fast...
+        // With a small delay to have the visual effect even if it is very fast...
         window.setTimeout(function() {
             $.removeCookie('session');
             window.location.reload();
-        }, 2000);
+        }, 1000);
     })
     .on("user_denied", function (event) {
         // User events - unauthorized access
@@ -1077,157 +1980,25 @@ $(function() {
     // -----
     page_body
     .on("configuration_done", function (event) {
-        // User events - unauthorized access
+        // Server data configuration is finished
         console.info('Configuration done:', event.message);
         alertify.success(event.message);
 
-        // Get all possible tickets
-        $("#loading").addClass('fa-spin').addClass('text-warning');
-        $("#panel-tickets").show();
-        $.when(
-            searchOptions('Ticket')
-        ).done(function(searchOptions) {
-            if (g_debugJs) console.debug('Tickets search options: ', searchOptions);
+        /*
+         * Lazy loading the tickets information even if we are not yet on the tickets page
+         */
+        if (g_plugin_webservices) {
+            getTicketsDataBis();
+        } else {
+            getTicketsData();
+        }
+    });
 
-            // Store tickets search options
-            userSettings.tickets_searchOptions = searchOptions;
-            /*
-             * Standard tickets search options:
-             * -----
-                1 Titre
-                2 ID
-                3 Priorité
-                4 Demandeur
-                5 Technicien
-                6 Assigné à un fournisseur
-                7 Catégorie
-                8 Groupe de techniciens
-                9 Source de la demande
-                10 Urgence
-                11 Impact
-                12 Statut
-                13 Éléments associés
-                14 Type
-                15 Date d'ouverture
-                16 Date de clôture
-                17 Date de résolution
-                18 Temps de résolution
-                19 Dernière modification
-                20 Tâches - Catégorie
-                21 Description
-                22 Rédacteur
-                23 Type de solution
-                24 Solution
-                25 Description
-                26 Tâches - Description
-                27 Nombre de suivis
-                28 Tâches - Nombre de tâches
-                29 Source de la demande
-                30 SLAs&nbsp;Temps de résolution
-                31 Type
-                32 SLAs&nbsp;Niveau d'escalade
-                33 Tâches - Statut
-                34 Courriel pour le suivi
-                35 Suivi par courriel
-                36 Date
-                37 SLAs&nbsp;Temps de prise en charge
-                40 Tous les tickets liés
-                41 Nombre de tous les tickets liés
-                42 Coût horaire
-                43 Coût fixe
-                44 Coût matériel
-                45 Durée totale
-                46 Nombre de ticket dupliqués
-                47 Tickets dupliqués
-                48 Coût total
-                49 Coût - Durée
-                50 Tickets parents
-                51 Validation minimale nécessaire
-                52 Validation
-                53 Commentaire de la demande
-                54 Commentaire de la validation
-                55 Statut de validation
-                56 Date de la demande
-                57 Date de la validation
-                58 Demandeur
-                59 Validateur
-                60 Date de création
-                61 Date de la réponse
-                62 Satisfaction
-                63 Commentaires
-                64 Dernière modification par
-                65 Groupe observateur
-                66 Observateur
-                67 Tickets enfants
-                68 Nombre de tickets enfants
-                69 Nombre de tickets parents
-                71 Groupe demandeur
-                80 Entité
-                82 Temps de résolution dépassé
-                83 Lieu
-                84 Numéro du bâtiment
-                85 Numéro de la pièce
-                86 Commentaires du lieu
-                91 Suivi privé
-                92 Tâches - Tâche privée
-                93 Rédacteur
-                94 Tâches - Rédacteur
-                95 Tâches - Technicien responsable
-                96 Tâches - Durée
-                97 Tâches - Date
-                101 Adresse
-                102 Code postal
-                103 Ville
-                104 État
-                105 Pays
-                112 Tâches - Groupe responsable
-                119 Nombre de documents
-                131 Types d'élément associé
-                141 Nombre de problèmes
-                142 Documents
-                150 Délai de prise en compte
-                151 Temps de résolution + Progression
-                152 Délai de clôture
-                153 Délai d'attente
-                154 Délai de résolution
-                155 Temps de prise en charge
-                158 Temps de prise en charge + progression
-                159 Temps de prise en charge dépassé
-                173 Tâches - Date de début
-                174 Tâches - Date de fin
-                175 Tâches - Gabarit de tâche
-                180 Temps interne de résolution
-                181 Temps interne de résolution + progression
-                182 Temps interne de résolution dépassé
-                185 Temps interne de prise en compte
-                186 Temps interne de prise en charge + progression
-                187 Temps interne de prise en charge dépassé
-                190 OLA&nbsp;Temps interne de prise en compte
-                191 OLA&nbsp;Temps interne de résolution
-                192 OLA&nbsp;Niveau d'escalade
-                998 Latitude
-                999 Longitude
-             */
-
-            $.each(searchOptions, function (idx, so) {
-                if (g_debugJs) console.debug(idx, so.name);
-            })
-
-            $.when(
-                getNewTickets(),
-                getProgressingTickets(),
-                getSuspendedTickets(),
-                getClosedTickets()
-            ).done(function() {
-                console.info('Got all tickets');
-            })
-        })
-        .always(function() {
-            // With a small delay to have thevisual effect even if it is very fast...
-            window.setTimeout(function() {
-                $("#loading").removeClass('fa-spin').removeClass('text-warning');
-            }, 500);
-        })
+    // Table tickets events
+    // -----
+    page_body
+    .on("click", "td>i.fa-chevron-down", function() {
+        console.info("Open ticket form !");
     });
 
     // Get server availability.
@@ -1235,18 +2006,24 @@ $(function() {
         g_refreshPeriod = get_url_parameter('refresh');
     }
 
-    if (g_user_token) {
+    if (! g_plugin_webservices && g_user_token) {
         // A user token is defined, no login is necessary, so simulate a login with empty credentials
         // Try to log WS user on ...
         wsLogin();
     } else {
+        // Enable the logout menu
+        $("#logout").parent().show();
+
         // If a session still exist
         if (! g_session_token) {
             // Show modal login form
-            $('#modalLogin').modal('show');
+            modal_login.modal('show');
         } else {
             // Hide modal login form
-            $('#modalLogin').modal('hide');
+            modal_login.modal('hide');
+
+            page_body.trigger(
+                $.Event("user_signed_in", {message: "Welcome back."}));
         }
     }
-});
+})
