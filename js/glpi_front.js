@@ -143,7 +143,7 @@ function getDefaultConfiguration(file_location) {
 /*
 * Utility function to build WS url
 * -----
-* Nginx configuration for the status URI
+* Nginx configuration for the core REST URI
    location /api {
       more_set_headers 'Access-Control-Allow-Origin: *';
       more_set_headers 'Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE';
@@ -159,13 +159,29 @@ function getDefaultConfiguration(file_location) {
       rewrite ^/api/(.*)$ /glpi-9.3/apirest.php/$1 last;
    }
 
+* Nginx configuration for the Web services plugin URI
+   location /api_plugin {
+      more_set_headers 'Access-Control-Allow-Origin: *';
+      more_set_headers 'Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE';
+      more_set_headers 'Access-Control-Allow-Credentials: true';
+      more_set_headers 'Access-Control-Allow-Headers: Origin,Content-Type,Accept,Authorization,App-Token,Session-Token';
+
+      if ($request_method = OPTIONS ) {
+        add_header Content-Length 0;
+        add_header Content-Type text/plain;
+        return 200;
+      }
+
+      rewrite ^/api_plugin$ /glpi-9.3/plugins/webservices/rest.php last;
+   }
 */
 function get_ws_url(sEndpoint) {
-    let url = g_scheme + "://" + g_server + ":" + g_port + g_path;
+    let url = g_scheme + "://" + g_server + ":" + g_port;
+    if (g_path !== '') {
+        url = url + g_path;
+    }
     if (sEndpoint) {
-        url = url + '/api/' + sEndpoint;
-    } else {
-        url = url + '/api_plugin';
+        url = url + '/' + sEndpoint;
     }
     return url;
 }
